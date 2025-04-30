@@ -4,9 +4,7 @@ const sellerWarehouses = require('../models/sellerWarehouse');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
-const JWT_EXPIRES_IN = '1h';
-
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // REGISTER
 exports.register = async (req, res) => {
