@@ -88,11 +88,6 @@ exports.login = async (req, res) => {
 exports.otpGenrate = async (req, res) => {
   try {
     const { phone } = req.body;
-    const user = await User.findOne({ phone, deleted_at: null });
-    if (!user) {
-      return sendError(res, 'Mobile number not found !', {}, 401);
-    }
-
     // Helper function to generate 4-digit OTP
     const generateOtp = Math.floor(1000 + Math.random() * 9000).toString();
     const otp = await Otps.create({
