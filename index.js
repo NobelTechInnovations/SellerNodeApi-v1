@@ -3,6 +3,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const cookieParser = require('cookie-parser');
+const logger = require('./src/middleware/logger')
 const connectDB = require('./src/config/db');
 
 
@@ -11,6 +12,7 @@ const app = express();
 
 app.use(express.json());
 app.use(cookieParser());
+app.use(logger);
 
 // Connect to MongoDB
 connectDB();
