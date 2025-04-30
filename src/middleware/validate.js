@@ -1,10 +1,11 @@
 // src/middleware/validate.js
 const { validationResult } = require('express-validator');
+const { sendSuccess, sendError } = require('../utils/responseHandler');
 
 exports.validate = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(422).json({ errors: errors.array() });
+    return sendError(res, 'Mobile number not found !', errors.array(), 401);
   }
   next();
 };
