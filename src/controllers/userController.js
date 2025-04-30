@@ -3,6 +3,7 @@ const Otps = require('../models/otps');
 const sellerWarehouses = require('../models/sellerWarehouse');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { sendSuccess, sendError } = require('../utils/responseHandler');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -89,7 +90,7 @@ exports.otpGenrate = async (req, res) => {
     const { phone } = req.body;
     const user = await User.findOne({ phone, deleted_at: null });
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Mobile number not found !' });
+      return sendError(res, 'Mobile number not found !', {}, 401);
     }
 
     // Helper function to generate 4-digit OTP
@@ -99,13 +100,10 @@ exports.otpGenrate = async (req, res) => {
         otp : generateOtp
     });
 
-    res.status(200).json({
-      success: true,
-      message: 'OTP create successfully !',
-      data: {
-        id: otp.otp,
-        created_at: otp.createdAt,
-      },
+    return sendSuccess(res, 'OTP create successfully !', {
+      otp: otp.otp,
+      created_at: otp.createdAt,
+
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -157,7 +155,7 @@ exports.sellerWarehouse = async (req, res) => {
     const warehouse = await SellerWarehouses.create(req.body);
     res.status(201).json({ success: true, data: warehouse });
   } catch (err) {
-    console.error('Create Error:', err.message);
+    logger.info(error.message);
     res.status(500).json({ success: false, message: err.message });
   }
 };
