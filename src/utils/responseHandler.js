@@ -14,5 +14,5 @@ const sendSuccess = (res, message = 'Success', data = {}, statusCode = 200) => {
     });
   };
   
-  export { sendSuccess, sendError };
+  module.exports = { sendSuccess, sendError };
   
