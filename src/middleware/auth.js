@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/user');
+const User = require('../models/users/user');
 
 const auth = async (req, res, next) => {
     try {
@@ -41,7 +41,6 @@ const auth = async (req, res, next) => {
             // Log successful token verification
             console.log('Token verified successfully:', {
                 userId: decoded.id,
-                phone: decoded.phone
             });
             
         } catch (jwtError) {

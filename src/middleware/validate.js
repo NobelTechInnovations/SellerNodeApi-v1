@@ -5,7 +5,7 @@ const { sendSuccess, sendError } = require('../utils/responseHandler');
 exports.validate = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return sendError(res, 'Mobile number not found !', errors.array(), 401);
+    return sendError(res, 'Required data not found !', errors.array(), 422);
   }
   next();
 };

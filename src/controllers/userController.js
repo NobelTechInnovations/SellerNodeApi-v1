@@ -1,6 +1,7 @@
-const User = require('../models/user');
-const Otps = require('../models/otps');
-const sellerWarehouses = require('../models/sellerWarehouse');
+const User = require('../models/users/user');
+const Otps = require('../models/auth/otps');
+const SellerWarehouses = require('../models/users/sellerWarehouse');
+const SellerBankDetails = require('../models/users/sellerBankDetails');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { sendSuccess, sendError } = require('../utils/responseHandler');
@@ -14,7 +15,7 @@ exports.register = async (req, res) => {
 
     const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
     if (existingUser) {
-      return res.status(400).json({ success: false, message: 'Email or phone already in use'});
+      return sendError(res,'Email or phone already in use !',{},400);
     }
 
     const user = await User.create({
@@ -26,23 +27,19 @@ exports.register = async (req, res) => {
       profile_complete: false,
     });
 
-    res.status(201).json({
-      success: true,
-      message: 'User registered successfully',
-      data: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        status: user.status,
-        profile_complete: user.profile_complete,
-        created_at: user.createdAt,
-        updated_at: user.updatedAt,
-      },
-    });
+    return sendSuccess(res,'User registered successfully !',{
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      status: user.status,
+      profile_complete: user.profile_complete,
+      created_at: user.createdAt,
+      updated_at: user.updatedAt,
+    },201);
+    
   } catch (error) {
-    console.error('Register Error:', error);
-    res.status(500).json({ success: false, message: 'Internal Server Error'});
+    return sendError(res,error.message,{},400);
   }
 };
 
@@ -53,21 +50,18 @@ exports.login = async (req, res) => {
 
     const user = await User.findOne({ email, deleted_at: null }).select('+password');
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      return sendError(res,'Invalid credentials',{},401);
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      return sendError(res,'Invalid credentials',{},401);
     }
 
     const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '1d' });
-
-    res.status(200).json({
-      success: true,
-      message: 'Login successful',
-      token,
-      data: {
+    
+    return sendSuccess(res,'Login successful !',{
+        token : token,
         id: user._id,
         name: user.name,
         email: user.email,
@@ -76,11 +70,9 @@ exports.login = async (req, res) => {
         profile_complete: user.profile_complete,
         created_at: user.createdAt,
         updated_at: user.updatedAt,
-      },
-    });
+    },201);
   } catch (error) {
-    console.error('Login Error:', error);
-    res.status(500).json({ success: false, message: 'Internal Server Error' });
+    return sendError(res,error.message,{},401);
   }
 };
 
@@ -101,7 +93,7 @@ exports.otpGenrate = async (req, res) => {
 
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res,error.message,{},500);
   }
 };
 
@@ -114,18 +106,18 @@ exports.verifyOtp = async (req, res) => {
     const otpRecord = await Otps.findOne({ phone, otp });
 
     if (!otpRecord) {
-      return res.status(400).json({ message: 'Invalid OTP or phone number' });
+      return sendError(res,'Invalid OTP or phone number',{},400);
     }
 
     // 2. Check expiry
     if (otpRecord.expiresAt < new Date()) {
-      return res.status(400).json({ message: 'OTP has expired' });
+      return sendError(res,'OTP has expired !',{},400);
     }
 
     //Check user
     const user = await User.findOne({ phone, deleted_at: null });
     if (!user) {
-      return res.status(400).json({ message: 'User not found !' });
+      return sendError(res,'User not found !',{},400);
     }
 
     // 3. Update OTP record as verified
@@ -135,11 +127,12 @@ exports.verifyOtp = async (req, res) => {
     const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '1d' });
     
     // 4. Respond
-    return res.status(200).json({ message: 'OTP verified successfully',"token" : token });
-
+    return sendSuccess(res, 'OTP verified successfully !', {
+      "token" : token
+    });
+    
   } catch (error) {
-    // console.error('OTP Verify Error:', error.message);
-    return res.status(500).json({ message: 'Server error during OTP verification'  ,error:error.message });
+    return sendError(res,'Server error during OTP verification',error.message,400);
   }
 };
 
@@ -147,11 +140,24 @@ exports.verifyOtp = async (req, res) => {
 //Seller Warehouse Details
 exports.sellerWarehouse = async (req, res) => {
   try {
+    req.body.seller_id = req.user._id;
     const warehouse = await SellerWarehouses.create(req.body);
-    res.status(201).json({ success: true, data: warehouse });
+    return sendSuccess(res, 'Seller warehouse details saved successfully!', {
+      warehouse,
+    });
   } catch (err) {
-    logger.info(error.message);
-    res.status(500).json({ success: false, message: err.message });
+    return sendError(res, 'Failed to save seller warehouse details', err.message, 400);
+  }
+};
+
+// Create bank details
+exports.createBankDetails = async (req, res) => {
+  try {
+      req.body.seller_id = req.user._id;
+      const bankDetails = await SellerBankDetails.create(req.body);
+      return sendSuccess(res, 'Bank details added successfully', { bankDetails });
+  } catch (err) {
+      return sendError(res, 'Failed to add bank details', err.message, 400);
   }
 };
 

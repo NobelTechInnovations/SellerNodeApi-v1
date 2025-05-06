@@ -5,6 +5,7 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const logger = require('./src/middleware/logger')
+const errorHandler = require('./src/middleware/errorHandler');
 const connectDB = require('./src/config/db');
 
 const app = express();
@@ -83,15 +84,8 @@ app.get('/', (req, res) => {
     res.send('Welcome to the Dynamic API');
 });
 
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({
-        status: 'error',
-        message: 'Something went wrong!'
-    });
-});
+// Error handling middleware (should be the last middleware)
+app.use(errorHandler);
 
 // Start the server
 const PORT = process.env.PORT || 3000;

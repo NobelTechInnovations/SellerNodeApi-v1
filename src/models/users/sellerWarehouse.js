@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const sellerWarehouseSchema = new mongoose.Schema({
+  seller_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User', // Reference to User collection
+      required: true
+  },
   warehouse_name: {
     type: String,
     required: true,

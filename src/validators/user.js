@@ -53,7 +53,6 @@ exports.verifyOtp = [
 ];
 
 exports.sellerWarehouse = [
-  body('seller_id').notEmpty().withMessage('Seller ID is required'),
   body('warehouse_name').notEmpty().withMessage('Warehouse name is required'),
   body('address').notEmpty().withMessage('Address is required'),
   body('city').notEmpty().withMessage('City is required'),
@@ -63,6 +62,40 @@ exports.sellerWarehouse = [
     .notEmpty().withMessage('Pincode is required')
     .isLength({ min: 6, max: 6 }).withMessage('Pincode must be exactly 6 digits')
     .isNumeric().withMessage('Pincode must contain only numbers'),
+];
+
+exports.createBankDetails = [
+    body('bank_name')
+        .notEmpty().withMessage('Bank name is required')
+        .trim(),
+
+    body('account_number')
+        .notEmpty().withMessage('Account number is required')
+        .trim()
+        .isLength({ min: 9, max: 18 }).withMessage('Account number must be between 9 and 18 characters'),
+
+    body('account_holder_name')
+        .notEmpty().withMessage('Account holder name is required')
+        .trim()
+        .isLength({ min: 2 }).withMessage('Account holder name must be at least 2 characters'),
+
+    body('branch_name')
+        .optional()
+        .trim(),
+
+    body('ifsc_code')
+        .optional()
+        .trim()
+        .isLength({ min: 11, max: 11 }).withMessage('IFSC code must be 11 characters'),
+
+    body('swift_code')
+        .optional()
+        .trim()
+        .isLength({ min: 8, max: 11 }).withMessage('SWIFT code must be between 8 and 11 characters'),
+
+    body('is_primary')
+        .optional()
+        .isBoolean().withMessage('is_primary must be a boolean value')
 ];
 
 

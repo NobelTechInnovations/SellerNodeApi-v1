@@ -10,6 +10,7 @@ router.post('/', registerValidator.userRegister, validate, userController.regist
 router.post('/login', registerValidator.userLogin, validate, userController.login);
 router.post('/request-otp', registerValidator.otpGenrate, validate, userController.otpGenrate);
 router.post('/varify-otp', registerValidator.verifyOtp, validate, userController.verifyOtp);
-router.post('/warehouse', auth, registerValidator.sellerWarehouse, validate, userController.sellerWarehouse);
+router.post('/add-warehouse', auth, registerValidator.sellerWarehouse, validate, userController.sellerWarehouse);
+router.post('/add-bank-details', auth, registerValidator.createBankDetails, validate, userController.createBankDetails);
 
 module.exports = router;
