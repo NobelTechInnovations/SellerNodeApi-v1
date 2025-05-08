@@ -20,7 +20,7 @@ exports.login = async (req, res) => {
         }
 
         const token = await generateToken(admin);
-        return sendSuccess(res, 'Logged in successfully', { token });
+        return sendSuccess(res, 'Logged in successfully', { token, role: admin.role });
     } catch (err) {
         return sendError(res, 'Failed to login', err.message, 500);
     }
