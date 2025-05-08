@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
+import multer from 'multer';
 import logger from './src/middleware/logger.js';
 import errorHandler from './src/middleware/errorHandler.js';
 import connectDB from './src/config/db.js';
@@ -22,9 +23,22 @@ app.use(cors({
     credentials: true
 }));
 
+// Configure multer for file uploads
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB limit
+    }
+});
+
+// Middleware for JSON and URL-encoded form bodies
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(logger);
+
+// Make multer upload available globally
+app.locals.upload = upload;
 
 // Connect to MongoDB
 connectDB();

@@ -24,10 +24,24 @@ router.post('/add',
     categoryController.createCategory
 );
 
-router.get('/', adminAuth, categoryController.getCategories);
+router.get('/list', adminAuth, categoryController.getCategories);
 router.get('/:category_id', adminAuth, getCategory, validate, categoryController.getCategory);
 router.get('/:parent_id/subcategories', adminAuth, categoryController.getSubCategories);
-router.put('/:category_id', adminAuth, updateCategory, validate, categoryController.updateCategory);
-router.delete('/:category_id', adminAuth, deleteCategory, validate, categoryController.deleteCategory);
+router.put('/:category_id/update', 
+    adminAuth,
+    (req, res, next) => {
+        req.uploadType = 'category';
+        next();
+    },
+    upload.fields([
+        { name: 'thumb', maxCount: 1 },
+        { name: 'gallery_images', maxCount: 5 }
+    ]),
+    handleUploadError,
+    updateCategory, 
+    validate, 
+    categoryController.updateCategory
+);
+router.delete('/:category_id/delete', adminAuth, deleteCategory, validate, categoryController.deleteCategory);
 
 export default router;

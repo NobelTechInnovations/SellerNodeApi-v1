@@ -136,19 +136,84 @@ export const getSubCategories = async (req, res) => {
 
 // Update category
 export const updateCategory = async (req, res) => {
+    console.log(req.body);
     try {
-        const category = await Category.findByIdAndUpdate(
-            req.params.category_id,
-            req.body,
-            { new: true }
-        );
+        // Ensure req.body exists
+        if (!req.body) {
+            return sendError(res, 'Update failed', 'No update data provided', 400);
+        }
 
-        if (!category) {
+        // If name is being updated, generate new slug
+        if (req.body.name && typeof req.body.name === 'string') {
+            // Convert name to slug format (lowercase, replace spaces with hyphens)
+            const newSlug = req.body.name
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/(^-|-$)/g, '');
+
+            // Check if the generated slug already exists
+            const existingCategory = await Category.findOne({ 
+                slug: newSlug,
+                _id: { $ne: req.params.category_id }
+            });
+
+            if (existingCategory) {
+                // If slug exists, append a number to make it unique
+                let counter = 1;
+                let uniqueSlug = newSlug;
+                while (await Category.findOne({ 
+                    slug: uniqueSlug,
+                    _id: { $ne: req.params.category_id }
+                })) {
+                    uniqueSlug = `${newSlug}-${counter}`;
+                    counter++;
+                }
+                req.body.slug = uniqueSlug;
+            } else {
+                req.body.slug = newSlug;
+            }
+        }
+
+        // Handle thumbnail upload
+        if (req.files && req.files.thumb && req.files.thumb[0]) {
+            req.body.thumbnail = req.files.thumb[0].location; // S3 URL
+        }
+
+        // Handle gallery images upload
+        if (req.files && req.files.gallery_images) {
+            req.body.image_gallery = req.files.gallery_images.map(file => file.location); // Array of S3 URLs
+        }
+
+        // Find the category first to ensure it exists
+        const existingCategory = await Category.findById(req.params.category_id);
+        if (!existingCategory) {
             return sendError(res, 'Category not found', {}, 404);
         }
 
+        // Update the category
+        const category = await Category.findByIdAndUpdate(
+            req.params.category_id,
+            { $set: req.body },
+            { 
+                new: true, 
+                runValidators: true,
+                context: 'query'
+            }
+        );
+
         return sendSuccess(res, 'Category updated successfully', { category });
     } catch (err) {
+        // Handle validation errors
+        if (err.name === 'ValidationError') {
+            const errors = Object.values(err.errors).map(error => error.message);
+            return sendError(res, 'Validation failed', errors.join(', '), 400);
+        }
+        
+        // Handle duplicate key error (for slug)
+        if (err.code === 11000) {
+            return sendError(res, 'Category update failed', 'A category with this name already exists', 400);
+        }
+
         return sendError(res, 'Failed to update category', err.message, 400);
     }
 };
