@@ -4,9 +4,39 @@ import { sendSuccess, sendError } from '../../utils/responseHandler.js';
 // Create category
 export const createCategory = async (req, res) => {
     try {
+        // Check if slug already exists
+        const existingCategory = await Category.findOne({ slug: req.body.slug });
+        if (existingCategory) {
+            return sendError(res, 'Category creation failed', 'A category with this name already exists', 400);
+        }
+
+        // Handle thumbnail upload
+        if (req.files && req.files.thumb && req.files.thumb[0]) {
+            req.body.thumbnail = req.files.thumb[0].location; // S3 URL
+        }
+
+        // Handle gallery images upload
+        if (req.files && req.files.gallery_images) {
+            req.body.image_gallery = req.files.gallery_images.map(file => file.location); // Array of S3 URLs
+        }
+
         const category = await Category.create(req.body);
-        return sendSuccess(res, 'Category created successfully', { category });
+        return sendSuccess(res, 'Category created successfully', { 
+            category,
+        });
     } catch (err) {
+        // Handle validation errors
+        if (err.name === 'ValidationError') {
+            const errors = Object.values(err.errors).map(error => error.message);
+            return sendError(res, 'Validation failed', errors.join(', '), 400);
+        }
+        
+        // Handle duplicate key error (for slug)
+        if (err.code === 11000) {
+            return sendError(res, 'Category creation failed', 'A category with this name already exists', 400);
+        }
+
+        // Handle other errors
         return sendError(res, 'Failed to create category', err.message, 400);
     }
 };

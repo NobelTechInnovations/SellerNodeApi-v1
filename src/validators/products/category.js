@@ -10,52 +10,39 @@ export const createCategory = [
         .withMessage('Category name must be a string')
         .trim()
         .isLength({ min: 2, max: 100 })
-        .withMessage('Category name must be between 2 and 100 characters'),
-    
-    body('slug')
-        .notEmpty()
-        .withMessage('Slug is required')
-        .isString()
-        .withMessage('Slug must be a string')
-        .trim()
-        .matches(/^[a-z0-9-]+$/)
-        .withMessage('Slug can only contain lowercase letters, numbers, and hyphens')
-        .custom(async (value) => {
-            const category = await Category.findOne({ slug: value });
-            if (category) {
-                throw new Error('Slug already exists');
-            }
+        .withMessage('Category name must be between 2 and 100 characters')
+        .custom(async (value, { req }) => {
+            // Generate slug from name
+            const slug = value.toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/(^-|-$)/g, '');
+            
+            // Add slug to request body
+            req.body.slug = slug;
             return true;
         }),
-    
+
     body('thumbnail')
         .optional()
-        .isURL()
-        .withMessage('Thumbnail must be a valid URL')
+        .isString()
+        .withMessage('Thumbnail must be a string')
         .trim(),
-    
+
     body('image_gallery')
         .optional()
         .isArray()
         .withMessage('Image gallery must be an array')
         .custom((value) => {
             if (!Array.isArray(value)) return true;
-            return value.every(url => {
-                try {
-                    new URL(url);
-                    return true;
-                } catch {
-                    return false;
-                }
-            });
+            return value.every(item => typeof item === 'string');
         })
-        .withMessage('All gallery images must be valid URLs'),
-    
+        .withMessage('All gallery items must be strings'),
+
     body('status')
         .optional()
         .isIn(['active', 'inactive'])
         .withMessage('Status must be either active or inactive'),
-    
+
     body('parent')
         .optional({ nullable: true })
         .custom(async (value) => {
@@ -71,7 +58,7 @@ export const createCategory = [
             }
             return true;
         }),
-    
+
     body('ancestors')
         .optional()
         .isArray()
@@ -105,7 +92,7 @@ export const updateCategory = [
             }
             return true;
         }),
-    
+
     body('name')
         .optional()
         .isString()
@@ -113,50 +100,28 @@ export const updateCategory = [
         .trim()
         .isLength({ min: 2, max: 100 })
         .withMessage('Category name must be between 2 and 100 characters'),
-    
-    body('slug')
-        .optional()
-        .isString()
-        .withMessage('Slug must be a string')
-        .trim()
-        .matches(/^[a-z0-9-]+$/)
-        .withMessage('Slug can only contain lowercase letters, numbers, and hyphens')
-        .custom(async (value, { req }) => {
-            const category = await Category.findOne({ slug: value, _id: { $ne: req.params.category_id } });
-            if (category) {
-                throw new Error('Slug already exists');
-            }
-            return true;
-        }),
-    
+
     body('thumbnail')
         .optional()
-        .isURL()
-        .withMessage('Thumbnail must be a valid URL')
+        .isString()
+        .withMessage('Thumbnail must be a string')
         .trim(),
-    
+
     body('image_gallery')
         .optional()
         .isArray()
         .withMessage('Image gallery must be an array')
         .custom((value) => {
             if (!Array.isArray(value)) return true;
-            return value.every(url => {
-                try {
-                    new URL(url);
-                    return true;
-                } catch {
-                    return false;
-                }
-            });
+            return value.every(item => typeof item === 'string');
         })
-        .withMessage('All gallery images must be valid URLs'),
-    
+        .withMessage('All gallery items must be strings'),
+
     body('status')
         .optional()
         .isIn(['active', 'inactive'])
         .withMessage('Status must be either active or inactive'),
-    
+
     body('parent')
         .optional()
         .isMongoId()
@@ -175,7 +140,7 @@ export const updateCategory = [
             }
             return true;
         }),
-    
+
     body('ancestors')
         .optional()
         .isArray()
