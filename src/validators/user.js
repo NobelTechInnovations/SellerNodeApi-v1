@@ -1,6 +1,6 @@
-const { body } = require('express-validator');
+import { body } from 'express-validator';
 
-exports.userRegister = [
+export const userRegister = [
     body('name')
       .notEmpty().withMessage('Name is required')
       .isLength({ min: 2 }).withMessage('Name must be at least 2 characters'),
@@ -18,7 +18,7 @@ exports.userRegister = [
       .isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
 ];
   
-exports.userLogin = [
+export const userLogin = [
     body('email')
     .notEmpty().withMessage('Username is required!')
     .custom((value) => {
@@ -35,13 +35,13 @@ exports.userLogin = [
     .isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
 ];
 
-exports.otpGenrate = [
+export const otpGenrate = [
     body('phone')
     .notEmpty().withMessage('Phone number is required!')
     .isMobilePhone('en-IN').withMessage('Please enter a valid Indian phone number')
 ];
 
-exports.verifyOtp = [
+export const verifyOtp = [
     body('phone')
     .notEmpty().withMessage('Phone number is required!')
     .isMobilePhone('en-IN').withMessage('Please enter a valid Indian phone number'),
@@ -52,7 +52,7 @@ exports.verifyOtp = [
     .isNumeric().withMessage('OTP must be a number'),
 ];
 
-exports.sellerWarehouse = [
+export const sellerWarehouse = [
   body('warehouse_name').notEmpty().withMessage('Warehouse name is required'),
   body('address').notEmpty().withMessage('Address is required'),
   body('city').notEmpty().withMessage('City is required'),
@@ -64,7 +64,7 @@ exports.sellerWarehouse = [
     .isNumeric().withMessage('Pincode must contain only numbers'),
 ];
 
-exports.createBankDetails = [
+export const createBankDetails = [
     body('bank_name')
         .notEmpty().withMessage('Bank name is required')
         .trim(),

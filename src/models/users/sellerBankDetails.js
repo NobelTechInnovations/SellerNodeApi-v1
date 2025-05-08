@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const sellerBankDetailsSchema = new mongoose.Schema({
     seller_id: {
@@ -49,4 +49,4 @@ const sellerBankDetailsSchema = new mongoose.Schema({
     timestamps: true
 });
 
-module.exports = mongoose.model('SellerBankDetails', sellerBankDetailsSchema); 
+export default mongoose.model('SellerBankDetails', sellerBankDetailsSchema); 

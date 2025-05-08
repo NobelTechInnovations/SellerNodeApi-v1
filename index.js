@@ -1,12 +1,16 @@
-require('dotenv').config();
-const express = require('express');
-const fs = require('fs');
-const path = require('path');
-const cookieParser = require('cookie-parser');
-const cors = require('cors');
-const logger = require('./src/middleware/logger')
-const errorHandler = require('./src/middleware/errorHandler');
-const connectDB = require('./src/config/db');
+import 'dotenv/config';
+import express from 'express';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
+import logger from './src/middleware/logger.js';
+import errorHandler from './src/middleware/errorHandler.js';
+import connectDB from './src/config/db.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -26,51 +30,51 @@ app.use(logger);
 connectDB();
 
 // Function to load routes dynamically from the given API directory and version
-function loadRoutesFromDirectory(apiVersion, apiType) {
+async function loadRoutesFromDirectory(apiVersion, apiType) {
     const apiDirectory = path.join(__dirname, 'routes', apiVersion, apiType);
 
     // Check if the API directory exists and is a directory
     if (fs.existsSync(apiDirectory) && fs.lstatSync(apiDirectory).isDirectory()) {
         const subDirs = fs.readdirSync(apiDirectory);
 
-        subDirs.forEach(subDir => {
+        for (const subDir of subDirs) {
             const routeDirectory = path.join(apiDirectory, subDir);
 
             if (fs.lstatSync(routeDirectory).isDirectory()) {
                 const routes = fs.readdirSync(routeDirectory);
 
-                routes.forEach(routeFile => {
+                for (const routeFile of routes) {
                     const routePath = path.join(routeDirectory, routeFile);
 
                     if (fs.lstatSync(routePath).isFile() && routeFile.endsWith('Routes.js')) {
                         try {
-                            const route = require(routePath);
-                            app.use(`/${apiVersion}/${apiType}/${subDir}`, route);
+                            const route = await import(routePath);
+                            app.use(`/${apiVersion}/${apiType}/${subDir}`, route.default);
                             console.log(`Route mounted: /api/${apiVersion}/${apiType}/${subDir}`);
                         } catch (error) {
                             console.error(`Error loading route ${routePath}:`, error);
                         }
                     }
-                });
+                }
             }
-        });
+        }
     } else {
         console.log(`No routes found for ${apiVersion} > ${apiType}`);
     }
 }
 
 // Function to load all routes for all versions and API types
-function loadAllRoutes() {
+async function loadAllRoutes() {
     try {
         const apiVersions = fs.readdirSync(path.join(__dirname, 'routes'));
 
-        apiVersions.forEach(version => {
+        for (const version of apiVersions) {
             const apiTypes = fs.readdirSync(path.join(__dirname, 'routes', version));
 
-            apiTypes.forEach(apiType => {
-                loadRoutesFromDirectory(version, apiType);
-            });
-        });
+            for (const apiType of apiTypes) {
+                await loadRoutesFromDirectory(version, apiType);
+            }
+        }
     } catch (error) {
         console.error('Error loading routes:', error);
     }

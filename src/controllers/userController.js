@@ -1,15 +1,15 @@
-const User = require('../models/users/user');
-const Otps = require('../models/auth/otps');
-const SellerWarehouses = require('../models/users/sellerWarehouse');
-const SellerBankDetails = require('../models/users/sellerBankDetails');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const { sendSuccess, sendError } = require('../utils/responseHandler');
+import User from '../models/users/User.js';
+import Otps from '../models/auth/otps.js';
+import SellerWarehouses from '../models/users/sellerWarehouse.js';
+import SellerBankDetails from '../models/users/sellerBankDetails.js';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import { sendSuccess, sendError } from '../utils/responseHandler.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
 // REGISTER
-exports.register = async (req, res) => {
+export const register = async (req, res) => {
   try {
     const { name, email, phone, password } = req.body;
 
@@ -44,7 +44,7 @@ exports.register = async (req, res) => {
 };
 
 // LOGIN
-exports.login = async (req, res) => {
+export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -77,7 +77,7 @@ exports.login = async (req, res) => {
 };
 
 // OTP genrate
-exports.otpGenrate = async (req, res) => {
+export const otpGenrate = async (req, res) => {
   try {
     const { phone } = req.body;
     // Helper function to generate 4-digit OTP
@@ -97,8 +97,8 @@ exports.otpGenrate = async (req, res) => {
   }
 };
 
-// OTP genrate
-exports.verifyOtp = async (req, res) => {
+// OTP verify
+export const verifyOtp = async (req, res) => {
   try {
     const { phone, otp } = req.body;
 
@@ -136,9 +136,8 @@ exports.verifyOtp = async (req, res) => {
   }
 };
 
-
 //Seller Warehouse Details
-exports.sellerWarehouse = async (req, res) => {
+export const sellerWarehouse = async (req, res) => {
   try {
     req.body.seller_id = req.user._id;
     const warehouse = await SellerWarehouses.create(req.body);
@@ -151,7 +150,7 @@ exports.sellerWarehouse = async (req, res) => {
 };
 
 // Create bank details
-exports.createBankDetails = async (req, res) => {
+export const createBankDetails = async (req, res) => {
   try {
       req.body.seller_id = req.user._id;
       const bankDetails = await SellerBankDetails.create(req.body);

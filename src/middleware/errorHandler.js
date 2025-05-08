@@ -1,4 +1,4 @@
-const { sendError } = require('../utils/responseHandler');
+import { sendError } from '../utils/responseHandler.js';
 
 const errorHandler = (err, req, res, next) => {
     console.error('Error:', err);
@@ -34,5 +34,5 @@ const errorHandler = (err, req, res, next) => {
     return sendError(res, err.message || 'Internal server error', err.name || 'INTERNAL_SERVER_ERROR', err.status || 500);
 };
 
-module.exports = errorHandler;
+export default errorHandler;
   

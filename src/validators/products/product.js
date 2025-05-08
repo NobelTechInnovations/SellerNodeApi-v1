@@ -1,9 +1,8 @@
-const { body } = require('express-validator');
-const mongoose = require('mongoose');
-const Category = require('../../models/products/category');
+import { body } from 'express-validator';
+import mongoose from 'mongoose';
+import Category from '../../models/products/category.js';
 
-exports.createProduct = [
-
+export const createProduct = [
     body('product.brand')
         .optional()
         .trim(),
@@ -46,7 +45,7 @@ exports.createProduct = [
         .withMessage('Invalid product condition')
 ];
 
-exports.updateProduct = [
+export const updateProduct = [
     body('product.unified_sku')
         .optional()
         .notEmpty()

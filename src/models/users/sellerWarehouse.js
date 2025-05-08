@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const sellerWarehouseSchema = new mongoose.Schema({
   seller_id: {
@@ -56,4 +56,4 @@ const sellerWarehouseSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-module.exports = mongoose.model('SellerWarehouse', sellerWarehouseSchema);
+export default mongoose.model('SellerWarehouse', sellerWarehouseSchema);

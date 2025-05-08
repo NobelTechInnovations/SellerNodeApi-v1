@@ -1,11 +1,11 @@
 // write all admin login and signup functions here
-const Admin = require('../models/admin/Admin');
-const bcrypt = require('bcryptjs');
-const { sendSuccess, sendError } = require('../utils/responseHandler');
-const { generateToken } = require('../utils/jwt');
+import Admin from '../models/admin/Admin.js';
+import bcrypt from 'bcryptjs';
+import { sendSuccess, sendError } from '../utils/responseHandler.js';
+import { generateToken } from '../utils/jwt.js';
 
 // ADMIN LOGIN
-exports.login = async (req, res) => {
+export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 

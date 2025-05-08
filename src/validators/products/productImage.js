@@ -1,6 +1,6 @@
-const { body } = require('express-validator');
+import { body } from 'express-validator';
 
-const createProductImageValidator = [
+export const createProductImageValidator = [
     body('thumbnail_image')
         .optional()
         .isURL()
@@ -25,7 +25,7 @@ const createProductImageValidator = [
         .withMessage('All gallery images must be valid URLs')
 ];
 
-const updateProductImageValidator = [
+export const updateProductImageValidator = [
     body('thumbnail_image')
         .optional()
         .isURL()
@@ -48,9 +48,4 @@ const updateProductImageValidator = [
             });
         })
         .withMessage('All gallery images must be valid URLs')
-];
-
-module.exports = {
-    createProductImageValidator,
-    updateProductImageValidator
-}; 
+]; 

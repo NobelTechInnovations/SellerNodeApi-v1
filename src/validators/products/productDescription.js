@@ -1,6 +1,6 @@
-const { body } = require('express-validator');
+import { body } from 'express-validator';
 
-const createProductDescriptionValidator = [
+export const createProductDescriptionValidator = [
     body('product_id')
         .notEmpty()
         .withMessage('Product ID is required')
@@ -37,7 +37,7 @@ const createProductDescriptionValidator = [
         .trim()
 ];
 
-const updateProductDescriptionValidator = [
+export const updateProductDescriptionValidator = [
     body('title')
         .optional()
         .isString()
@@ -65,9 +65,4 @@ const updateProductDescriptionValidator = [
         .isIn(['en', 'fr', 'es'])
         .withMessage('Language must be one of: en, fr, es')
         .trim()
-];
-
-module.exports = {
-    createProductDescriptionValidator,
-    updateProductDescriptionValidator
-}; 
+]; 

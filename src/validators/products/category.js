@@ -1,8 +1,8 @@
-const { body, param } = require('express-validator');
-const mongoose = require('mongoose');
-const Category = require('../../models/products/category');
+import { body, param } from 'express-validator';
+import mongoose from 'mongoose';
+import Category from '../../models/products/category.js';
 
-exports.createCategory = [
+export const createCategory = [
     body('name')
         .notEmpty()
         .withMessage('Category name is required')
@@ -91,7 +91,7 @@ exports.createCategory = [
         })
 ];
 
-exports.updateCategory = [
+export const updateCategory = [
     param('category_id')
         .isMongoId()
         .withMessage('Invalid category ID')
@@ -198,7 +198,7 @@ exports.updateCategory = [
         })
 ];
 
-exports.getCategory = [
+export const getCategory = [
     param('category_id')
         .isMongoId()
         .withMessage('Invalid category ID')
@@ -214,7 +214,7 @@ exports.getCategory = [
         })
 ];
 
-exports.deleteCategory = [
+export const deleteCategory = [
     param('category_id')
         .isMongoId()
         .withMessage('Invalid category ID')

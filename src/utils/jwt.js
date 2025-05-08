@@ -1,8 +1,9 @@
-// write function to generate JWT token
-const jwt = require('jsonwebtoken');
+import jwt from 'jsonwebtoken';
+import { sendError } from './responseHandler.js';
+
 const JWT_SECRET = process.env.JWT_SECRET;
 
-exports.generateToken = (user) => {
+export const generateToken = (user) => {
     const payload = {
         id: user._id,
         role: user.role,
@@ -13,7 +14,7 @@ exports.generateToken = (user) => {
 };
 
 // write function to verify JWT token
-exports.verifyToken = (req, res, next) => {
+export const verifyToken = (req, res, next) => {
     const token = req.headers['authorization'];
     if (!token) {
         return sendError(res, 'No token provided', null, 401);

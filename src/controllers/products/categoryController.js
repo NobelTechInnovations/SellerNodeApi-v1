@@ -1,8 +1,8 @@
-const Category = require('../../models/products/category');
-const { sendSuccess, sendError } = require('../../utils/responseHandler');
+import Category from '../../models/products/category.js';
+import { sendSuccess, sendError } from '../../utils/responseHandler.js';
 
 // Create category
-exports.createCategory = async (req, res) => {
+export const createCategory = async (req, res) => {
     try {
         const category = await Category.create(req.body);
         return sendSuccess(res, 'Category created successfully', { category });
@@ -12,7 +12,7 @@ exports.createCategory = async (req, res) => {
 };
 
 // Get all categories
-exports.getCategories = async (req, res) => {
+export const getCategories = async (req, res) => {
     try {
         const { page = 1, limit = 10, status } = req.query;
         const query = {};
@@ -41,7 +41,7 @@ exports.getCategories = async (req, res) => {
 };
 
 // Get single category
-exports.getCategory = async (req, res) => {
+export const getCategory = async (req, res) => {
     try {
         const category = await Category.findById(req.params.category_id);
         if (!category) {
@@ -54,7 +54,7 @@ exports.getCategory = async (req, res) => {
 };
 
 // Get all subcategories of a parent category
-exports.getSubCategories = async (req, res) => {
+export const getSubCategories = async (req, res) => {
     try {
         const { parent_id } = req.params;
         const { page = 1, limit = 10, status } = req.query;
@@ -105,7 +105,7 @@ exports.getSubCategories = async (req, res) => {
 };
 
 // Update category
-exports.updateCategory = async (req, res) => {
+export const updateCategory = async (req, res) => {
     try {
         const category = await Category.findByIdAndUpdate(
             req.params.category_id,
@@ -124,7 +124,7 @@ exports.updateCategory = async (req, res) => {
 };
 
 // Delete category
-exports.deleteCategory = async (req, res) => {
+export const deleteCategory = async (req, res) => {
     try {
         const category = await Category.findByIdAndDelete(req.params.category_id);
         

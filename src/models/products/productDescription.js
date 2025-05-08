@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const productDescriptionSchema = new mongoose.Schema({
     product_id: {
@@ -31,4 +31,4 @@ const productDescriptionSchema = new mongoose.Schema({
     timestamps: true
 });
 
-module.exports = mongoose.model('ProductDescription', productDescriptionSchema); 
+export default mongoose.model('ProductDescription', productDescriptionSchema); 

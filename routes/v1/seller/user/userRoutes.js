@@ -1,9 +1,10 @@
-const express = require('express');
+import express from 'express';
+import * as registerValidator from '../../../../src/validators/user.js';
+import { validate } from '../../../../src/middleware/validate.js';
+import * as userController from '../../../../src/controllers/userController.js';
+import auth from '../../../../src/middleware/auth.js';
+
 const router = express.Router();
-const registerValidator  = require('../../../../src/validators/user');
-const { validate } = require('../../../../src/middleware/validate');
-const userController = require('../../../../src/controllers/userController')
-const auth = require('../../../../src/middleware/auth')
 
 //User Registration 
 router.post('/', registerValidator.userRegister, validate, userController.register);
@@ -13,4 +14,4 @@ router.post('/varify-otp', registerValidator.verifyOtp, validate, userController
 router.post('/add-warehouse', auth, registerValidator.sellerWarehouse, validate, userController.sellerWarehouse);
 router.post('/add-bank-details', auth, registerValidator.createBankDetails, validate, userController.createBankDetails);
 
-module.exports = router;
+export default router;

@@ -1,11 +1,11 @@
-const mongoose = require('mongoose');
-const Product = require('../../models/products/product');
-const Images = require('../../models/products/productImage');
-const Titles = require('../../models/products/productDescription');
-const { sendSuccess, sendError } = require('../../utils/responseHandler');
+import mongoose from 'mongoose';
+import Product from '../../models/products/Product.js';
+import Images from '../../models/products/productImage.js';
+import Titles from '../../models/products/productDescription.js';
+import { sendSuccess, sendError } from '../../utils/responseHandler.js';
 
 // Create product with transaction
-exports.createProduct = async (req, res) => {
+export const createProduct = async (req, res) => {
     let session;
     try {
         // Start MongoDB session
@@ -49,7 +49,7 @@ exports.createProduct = async (req, res) => {
 };
 
 // Get all products with pagination and filters
-exports.getProducts = async (req, res) => {
+export const getProducts = async (req, res) => {
     try {
         const { page = 1, limit = 10, status, category_id, condition } = req.query;
         const query = {};
@@ -85,7 +85,7 @@ exports.getProducts = async (req, res) => {
 };
 
 // Get single product by ID
-exports.getProduct = async (req, res) => {
+export const getProduct = async (req, res) => {
     try {
         const product = await Product.findOne({ product_id: req.params.product_id })
             .populate('category_id', 'name slug')
@@ -102,7 +102,7 @@ exports.getProduct = async (req, res) => {
 };
 
 // Update product with transaction
-exports.updateProduct = async (req, res) => {
+export const updateProduct = async (req, res) => {
     let session;
     try {
         session = await mongoose.startSession();
@@ -164,7 +164,7 @@ exports.updateProduct = async (req, res) => {
 };
 
 // Delete product (soft delete)
-exports.deleteProduct = async (req, res) => {
+export const deleteProduct = async (req, res) => {
     let session;
     try {
         session = await mongoose.startSession();
@@ -196,12 +196,17 @@ exports.deleteProduct = async (req, res) => {
 };
 
 // Update product status
-exports.updateProductStatus = async (req, res) => {
+export const updateProductStatus = async (req, res) => {
     try {
         const { status } = req.body;
-        
+        const productId = req.params.product_id;
+
+        if (!status) {
+            return sendError(res, 'Status is required', null, 400);
+        }
+
         const product = await Product.findOneAndUpdate(
-            { product_id: req.params.product_id },
+            { product_id: productId },
             { status },
             { new: true }
         );
