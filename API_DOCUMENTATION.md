@@ -1,7 +1,7 @@
 # Agora Seller API Documentation
 
 ## Overview
-The Seller API provides a comprehensive set of endpoints for managing products and categories in an e-commerce platform. This documentation describes the available endpoints and their functionality.
+The Seller API  provides a comprehensive set of endpoints for managing products and categories in an e-commerce platform. This documentation describes the available endpoints and their functionality.
 
 ## Authentication
 All API endpoints require authentication using JWT (JSON Web Token). Users must include their JWT token in the Authorization header of each request.
