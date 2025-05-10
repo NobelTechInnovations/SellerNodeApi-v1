@@ -1,4 +1,4 @@
-import User from '../models/users/User.js';
+import User from '../models/users/user.js';
 import Otps from '../models/auth/otps.js';
 import SellerWarehouses from '../models/users/sellerWarehouse.js';
 import SellerBankDetails from '../models/users/sellerBankDetails.js';
