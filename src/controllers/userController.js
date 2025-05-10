@@ -104,7 +104,7 @@ export const verifyOtp = async (req, res) => {
 
     // 1. Find the OTP entry for the phone
     const otpRecord = await Otps.findOne({ phone, otp });
-
+    
     if (!otpRecord) {
       return sendError(res,'Invalid OTP or phone number',{},400);
     }
@@ -115,9 +115,18 @@ export const verifyOtp = async (req, res) => {
     }
 
     //Check user
-    const user = await User.findOne({ phone, deleted_at: null });
+    let  user = await User.findOne({ phone, deleted_at: null });
+    // 3a. If user doesn't exist, create new user and return isNewUser = true
     if (!user) {
-      return sendError(res,'User not found !',{},400);
+      user = new User({ phone });
+      await user.save();
+
+      const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '30d' });
+
+      return sendSuccess(res, 'OTP verified, new user created', {
+        token,
+        isNewUser: true
+      },201);
     }
 
     // 3. Update OTP record as verified
@@ -128,8 +137,15 @@ export const verifyOtp = async (req, res) => {
     
     // 4. Respond
     return sendSuccess(res, 'OTP verified successfully !', {
-      "token" : token
-    });
+
+      "user" : {
+        "phone" : user.phone,
+        "name" : user.name ? user.name : user.phone,
+      },
+      "isNewUser" : false,
+      "token" : token,
+      
+    },201);
     
   } catch (error) {
     return sendError(res,'Server error during OTP verification',error.message,400);

@@ -5,13 +5,13 @@ const userSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: [true, 'Name is required'],
+      // required: [true, 'Name is required'],
       trim: true,
       minlength: 2,
     },
     email: {
       type: String,
-      required: [true, 'Email is required'],
+      // required: [true, 'Email is required'],
       unique: true,
       lowercase: true,
       trim: true,
@@ -29,14 +29,14 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: true,
+      // required: true,
       minlength: 6,
       select: false,
     },
     status: {
       type: String,
-      enum: ['active', 'inactive', 'banned'],
-      default: 'inactive',
+      enum: ['active','pending', 'inactive', 'banned'],
+      default: 'pending',
     },
     profile_complete: {
       type: Boolean,

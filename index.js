@@ -1,8 +1,5 @@
 import 'dotenv/config';
 import express from 'express';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import multer from 'multer';
@@ -10,8 +7,13 @@ import logger from './src/middleware/logger.js';
 import errorHandler from './src/middleware/errorHandler.js';
 import connectDB from './src/config/db.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Import routes
+import attributeRoutes from './routes/v1/admin/attribute/attributeRoutes.js';
+import attributeOptionRoutes from './routes/v1/admin/attributeOption/attributeOptionRoutes.js';
+import authRoutes from './routes/v1/admin/auth/authRoutes.js';
+import categoryRoutes from './routes/v1/admin/category/categoryRoutes.js';
+import productRoutes from './routes/v1/seller/product/productRoutes.js';
+import userRoutes from './routes/v1/seller/user/userRoutes.js';
 
 const app = express();
 
@@ -26,7 +28,7 @@ const upload = multer({
     }
 });
 
-// Middleware for JSON and URL-encoded form bodies
+// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -38,70 +40,31 @@ app.locals.upload = upload;
 // Connect to MongoDB
 connectDB();
 
-// Function to load routes dynamically from the given API directory and version
-async function loadRoutesFromDirectory(apiVersion, apiType) {
-    const apiDirectory = path.join(__dirname, 'routes', apiVersion, apiType);
+// Mount routes
+// Admin routes
+app.use('/v1/admin/attribute', attributeRoutes);
+app.use('/v1/admin/attribute-option', attributeOptionRoutes);
+app.use('/v1/admin/auth', authRoutes);
+app.use('/v1/admin/category', categoryRoutes);
 
-    // Check if the API directory exists and is a directory
-    if (fs.existsSync(apiDirectory) && fs.lstatSync(apiDirectory).isDirectory()) {
-        const subDirs = fs.readdirSync(apiDirectory);
+// Seller routes
+app.use('/v1/seller/product', productRoutes);
+app.use('/v1/seller/user', userRoutes);
 
-        for (const subDir of subDirs) {
-            const routeDirectory = path.join(apiDirectory, subDir);
-
-            if (fs.lstatSync(routeDirectory).isDirectory()) {
-                const routes = fs.readdirSync(routeDirectory);
-
-                for (const routeFile of routes) {
-                    const routePath = path.join(routeDirectory, routeFile);
-
-                    if (fs.lstatSync(routePath).isFile() && routeFile.endsWith('Routes.js')) {
-                        try {
-                            const route = await import(routePath);
-                            app.use(`/${apiVersion}/${apiType}/${subDir}`, route.default);
-                            console.log(`Route mounted: /api/${apiVersion}/${apiType}/${subDir}`);
-                        } catch (error) {
-                            console.error(`Error loading route ${routePath}:`, error);
-                        }
-                    }
-                }
-            }
-        }
-    } else {
-        console.log(`No routes found for ${apiVersion} > ${apiType}`);
-    }
-}
-
-// Function to load all routes for all versions and API types
-async function loadAllRoutes() {
-    try {
-        const apiVersions = fs.readdirSync(path.join(__dirname, 'routes'));
-
-        for (const version of apiVersions) {
-            const apiTypes = fs.readdirSync(path.join(__dirname, 'routes', version));
-
-            for (const apiType of apiTypes) {
-                await loadRoutesFromDirectory(version, apiType);
-            }
-        }
-    } catch (error) {
-        console.error('Error loading routes:', error);
-    }
-}
-
-// Load all routes dynamically
-loadAllRoutes();
-
-// Example of a base route
-app.get('/', (req, res) => {
+app.get('/v1/test', (req, res) => {
+    res.status(200).json({ status: 'success', message: 'API is running properly!' });
+  });
+  
+  // Base route
+  app.get('/', (req, res) => {
     res.send('Welcome to the Dynamic API');
-});
+  });
 
-// Error handling middleware (should be the last middleware)
+// Error handling middleware
 app.use(errorHandler);
 
 // Start the server
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
