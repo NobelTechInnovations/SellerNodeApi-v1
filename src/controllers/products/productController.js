@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import Product from '../../models/products/Product.js';
+import Product from '../../models/products/product.js';
 import Images from '../../models/products/productImage.js';
 import Titles from '../../models/products/productDescription.js';
 import { sendSuccess, sendError } from '../../utils/responseHandler.js';
