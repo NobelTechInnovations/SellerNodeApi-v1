@@ -14,7 +14,8 @@ import authRoutes from './routes/v1/admin/auth/authRoutes.js';
 import categoryRoutes from './routes/v1/admin/category/categoryRoutes.js';
 import productRoutes from './routes/v1/seller/product/productRoutes.js';
 import userRoutes from './routes/v1/seller/user/userRoutes.js';
-
+import orderRoutes from './routes/v1/admin/order/orderRoutes.js';
+import sellerOrderRoutes from './routes/v1/seller/order/orderRoutes.js';
 const app = express();
 
 // CORS configuration
@@ -46,15 +47,14 @@ app.use('/v1/admin/attribute', attributeRoutes);
 app.use('/v1/admin/attribute-option', attributeOptionRoutes);
 app.use('/v1/admin/auth', authRoutes);
 app.use('/v1/admin/category', categoryRoutes);
+app.use('/v1/admin/order', orderRoutes);
 
 // Seller routes
 app.use('/v1/seller/product', productRoutes);
 app.use('/v1/seller/user', userRoutes);
+app.use('/v1/seller/order', sellerOrderRoutes);
 
-app.get('/v1/test', (req, res) => {
-    res.status(200).json({ status: 'success', message: 'API is running properly!' });
-  });
-  
+
   // Base route
   app.get('/', (req, res) => {
     res.send('Welcome to the Dynamic API');

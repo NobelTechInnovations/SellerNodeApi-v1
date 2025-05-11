@@ -96,4 +96,182 @@ The API uses standard HTTP status codes to indicate the success or failure of re
 - All IDs are MongoDB ObjectIds unless otherwise specified
 - Image URLs must be publicly accessible
 - Category slugs must be unique across the system
-- Product SKUs must be unique across the system 
+- Product SKUs must be unique across the system
+
+## Order API
+
+### Store Order
+- **Endpoint:** `POST /api/orders`
+- **Description:** Store a new order in the database.
+- **Request Payload:**
+  ```json
+  {
+    "order_number": "AGR-456-2025061012313",
+    "status": "pending",
+    "customer_id": "60d21b4667d0d8992e610c85",
+    "customer_email": "customer@example.com",
+    "total_amount": 100.00,
+    "total_qty": 2,
+    "total_item": 1,
+    "sub_total_amount": 90.00,
+    "final_amount": 100.00,
+    "discount": 10.00,
+    "tax": 5.00,
+    "shipping": 5.00,
+    "refund": 0.00,
+    "extra": {},
+    "order_products": [
+      {
+        "sku": "SKU123",
+        "productId": "60d21b4667d0d8992e610c87",
+        "product_type": "Electronics",
+        "base_price": 50.00,
+        "qty": 1,
+        "total": 50.00,
+        "shipping": 2.50,
+        "tax": 2.50,
+        "discount": 0.00,
+        "refund": 0.00,
+        "additional": {},
+        "sellerId": "60d21b4667d0d8992e610c88",
+        "product_instance": {
+          "name": "Product Name",
+          "image": "http://example.com/image.jpg",
+          "order_price": 50.00,
+          "qty": 1,
+          "id": "60d21b4667d0d8992e610c87",
+          "sku": "SKU123"
+        }
+      }
+    ],
+    "order_vendor": {
+      "orderID": "60d21b4667d0d8992e610c86",
+      "sellerId": "60d21b4667d0d8992e610c88",
+      "order_vendor_id": "60d21b4667d0d8992e610c86/60d21b4667d0d8992e610c88"
+    }
+  }
+  ```
+- **Response:**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "_id": "60d21b4667d0d8992e610c86",
+      "order_number": "AGR-456-2025061012313",
+      "status": "pending",
+      "customer_id": "60d21b4667d0d8992e610c85",
+      "customer_email": "customer@example.com",
+      "total_amount": 100.00,
+      "total_qty": 2,
+      "total_item": 1,
+      "sub_total_amount": 90.00,
+      "final_amount": 100.00,
+      "discount": 10.00,
+      "tax": 5.00,
+      "shipping": 5.00,
+      "refund": 0.00,
+      "extra": {},
+      "order_products": [
+        {
+          "sku": "SKU123",
+          "productId": "60d21b4667d0d8992e610c87",
+          "product_type": "Electronics",
+          "base_price": 50.00,
+          "qty": 1,
+          "total": 50.00,
+          "shipping": 2.50,
+          "tax": 2.50,
+          "discount": 0.00,
+          "refund": 0.00,
+          "additional": {},
+          "sellerId": "60d21b4667d0d8992e610c88",
+          "product_instance": {
+            "name": "Product Name",
+            "image": "http://example.com/image.jpg",
+            "order_price": 50.00,
+            "qty": 1,
+            "id": "60d21b4667d0d8992e610c87",
+            "sku": "SKU123"
+          }
+        }
+      ],
+      "order_vendor": {
+        "orderID": "60d21b4667d0d8992e610c86",
+        "sellerId": "60d21b4667d0d8992e610c88",
+        "order_vendor_id": "60d21b4667d0d8992e610c86/60d21b4667d0d8992e610c88"
+      },
+      "createdAt": "2023-06-10T12:31:30.000Z",
+      "updatedAt": "2023-06-10T12:31:30.000Z"
+    }
+  }
+  ```
+
+## Seller Order API
+
+### Fetch Orders by Seller ID
+- **Endpoint:** `GET /api/seller/:sellerId/orders`
+- **Description:** Fetch orders associated with a specific seller.
+- **Response:**
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "_id": "60d21b4667d0d8992e610c86",
+        "order_number": "AGR-456-2025061012313",
+        "status": "pending",
+        "customer_id": "60d21b4667d0d8992e610c85",
+        "customer_email": "customer@example.com",
+        "total_amount": 100.00,
+        "total_qty": 2,
+        "total_item": 1,
+        "sub_total_amount": 90.00,
+        "final_amount": 100.00,
+        "discount": 10.00,
+        "tax": 5.00,
+        "shipping": 5.00,
+        "refund": 0.00,
+        "extra": {},
+        "order_products": [
+          {
+            "sku": "SKU123",
+            "productId": "60d21b4667d0d8992e610c87",
+            "product_type": "Electronics",
+            "base_price": 50.00,
+            "qty": 1,
+            "total": 50.00,
+            "shipping": 2.50,
+            "tax": 2.50,
+            "discount": 0.00,
+            "refund": 0.00,
+            "additional": {},
+            "sellerId": "60d21b4667d0d8992e610c88",
+            "product_instance": {
+              "name": "Product Name",
+              "image": "http://example.com/image.jpg",
+              "order_price": 50.00,
+              "qty": 1,
+              "id": "60d21b4667d0d8992e610c87",
+              "sku": "SKU123"
+            }
+          }
+        ],
+        "order_vendor": {
+          "orderID": "60d21b4667d0d8992e610c86",
+          "sellerId": "60d21b4667d0d8992e610c88",
+          "order_vendor_id": "60d21b4667d0d8992e610c86/60d21b4667d0d8992e610c88"
+        },
+        "createdAt": "2023-06-10T12:31:30.000Z",
+        "updatedAt": "2023-06-10T12:31:30.000Z"
+      }
+    ]
+  }
+  ```
+
+## Routes
+
+### Order Routes
+- `POST /api/orders` - Store a new order
+
+### Seller Order Routes
+- `GET /api/seller/:sellerId/orders` - Fetch orders by seller ID 
