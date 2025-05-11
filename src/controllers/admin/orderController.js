@@ -16,6 +16,7 @@ export const storeOrder = async (req, res) => {
         ...product,
         order_id: newOrder._id
       }));
+
       const insertedProducts = await OrderProduct.insertMany(orderProducts);
       const productIds = insertedProducts.map(p => p._id);
 
@@ -27,12 +28,17 @@ export const storeOrder = async (req, res) => {
       );
     }
 
-    // Step 3: Add order vendor details
-    if (order_vendor) {
+    // Step 3: Save Order Vendor
+    if (order_vendor && order_vendor.sellerId) {
+      const timestamp = new Date().toISOString().replace(/[-T:.Z]/g, '');
+      const order_vendor_id = `AGR-456-${timestamp}/${order_vendor.sellerId}`;
+
       const newOrderVendor = new OrderVendor({
         ...order_vendor,
-        orderID: newOrder._id
+        orderID: newOrder._id,
+        order_vendor_id
       });
+
       await newOrderVendor.save();
     }
 
