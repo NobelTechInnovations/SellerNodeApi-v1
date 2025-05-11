@@ -1,6 +1,6 @@
 import Order from '../../models/orders/order.js';
 import OrderProduct from '../../models/orders/orderProduct.js';
-import OrderVendor from '../../models/orders/orderVendor.js';
+import OrderVendor from '../../models/orders/OrderVendor.js';
 
 export const storeOrder = async (req, res) => {
   try {

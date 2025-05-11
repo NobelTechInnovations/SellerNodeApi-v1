@@ -173,7 +173,6 @@ export const createBankDetails = async (req, res) => {
   }
 };
 
-// Create bank details
 export const businessDetails = async (req, res) => {
   try {
       req.body.seller_id = req.user._id;

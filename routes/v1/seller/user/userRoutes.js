@@ -12,7 +12,6 @@ router.post('/login', registerValidator.userLogin, validate, userController.logi
 router.post('/request-otp', registerValidator.otpGenrate, validate, userController.otpGenrate);
 router.post('/verify-otp', registerValidator.verifyOtp, validate, userController.verifyOtp);
 router.post('/add-warehouse', auth, registerValidator.sellerWarehouse, validate, userController.sellerWarehouse);
-router.post('/add-warehouse', auth, registerValidator.sellerWarehouse, validate, userController.sellerWarehouse);
-router.post('/business-data', auth, registerValidator.businessDetails, validate, userController.businessDetails);
+router.post('/business-data', auth, userController.businessDetails);
 
 export default router;
