@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const sellerBusinessDetailsSchema = new mongoose.Schema({
   seller_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -15,4 +15,4 @@ const sellerBusinessDetailsSchema = new mongoose.Schema({
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } // auto-manage timestamps
 });
 
-module.exports = mongoose.model('SellerBusinessDetails', sellerBusinessDetailsSchema);
+export default mongoose.model('SellerBusinessDetails', sellerBusinessDetailsSchema);
