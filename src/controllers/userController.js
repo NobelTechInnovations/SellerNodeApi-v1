@@ -13,22 +13,15 @@ export const register = async (req, res) => {
   try {
     const { name, email, phone, password } = req.body;
 
-    const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
-    if (existingUser) {
-      return sendError(res,'Email or phone already in use !',{},400);
-    }
-
-    const user = await User.create({
+    const user = await User.findOneAndUpdate({
       name,
       email,
-      phone,
       password,
-      status: 'inactive',
+      status: 'in-review',
       profile_complete: false,
     });
 
     return sendSuccess(res,'User registered successfully !',{
-      id: user._id,
       name: user.name,
       email: user.email,
       phone: user.phone,
