@@ -1,10 +1,7 @@
-// create a model for seller business details
-
-import { json } from 'express';
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const sellerBusinessDetailsSchema = new mongoose.Schema({
-  seller_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  seller_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   business_name: { type: String, required: true },
   business_address: { type: String },
   pincode: { type: String },
@@ -12,12 +9,10 @@ const sellerBusinessDetailsSchema = new mongoose.Schema({
   business_identity_type: { type: String },
   currency: { type: String },
   language: { type: String },
-  documents: { type: json },
-  status: { type: String, default: 'in-review' },
-  created_at: { type: Date, default: Date.now },
-  updated_at: { type: Date, default: Date.now },
+  documents: { type: mongoose.Schema.Types.Mixed }, // Accepts any JSON-like object
+  status: { type: String, default: 'in-review' }
+}, {
+  timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } // auto-manage timestamps
 });
 
-const SellerBusinessDetails = mongoose.model('SellerBusinessDetails', sellerBusinessDetailsSchema);
-
-export default SellerBusinessDetails;
+module.exports = mongoose.model('SellerBusinessDetails', sellerBusinessDetailsSchema);
