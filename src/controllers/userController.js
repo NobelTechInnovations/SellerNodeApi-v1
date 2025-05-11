@@ -12,14 +12,17 @@ const JWT_SECRET = process.env.JWT_SECRET;
 export const register = async (req, res) => {
   try {
     const { name, email, phone, password } = req.body;
-
-    const user = await User.findOneAndUpdate({
-      name,
-      email,
-      password,
-      status: 'in-review',
-      profile_complete: false,
-    });
+    const user = await User.findOneAndUpdate(
+      { phone }, // find by phone number
+      {
+        name,
+        email,
+        password,
+        status: 'in-review',
+        profile_complete: false,
+      },
+      { new: true } // return the updated document
+    );
 
     return sendSuccess(res,'User registered successfully !',{
       name: user.name,
