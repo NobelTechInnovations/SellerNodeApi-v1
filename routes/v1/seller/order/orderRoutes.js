@@ -4,5 +4,6 @@ import * as SellerOrderController from '../../../../src/controllers/orders/selle
 const router = express.Router();
 
 router.get('/list', SellerOrderController.getOrdersBySellerId);
+router.post('/:orderId/process', SellerOrderController.processOrder);
 
 export default router;

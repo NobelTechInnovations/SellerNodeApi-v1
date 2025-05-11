@@ -7,7 +7,7 @@ import auth from '../../../../src/middleware/auth.js';
 const router = express.Router();
 
 //User Registration 
-router.post('/', registerValidator.userRegister, validate, userController.register);
+router.post('/register', registerValidator.userRegister, validate, userController.register);
 router.post('/login', registerValidator.userLogin, validate, userController.login);
 router.post('/request-otp', registerValidator.otpGenrate, validate, userController.otpGenrate);
 router.post('/verify-otp', registerValidator.verifyOtp, validate, userController.verifyOtp);
