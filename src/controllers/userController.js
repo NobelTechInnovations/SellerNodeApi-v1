@@ -5,6 +5,7 @@ import SellerBankDetails from '../models/users/sellerBankDetails.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { sendSuccess, sendError } from '../utils/responseHandler.js';
+import SellerBusinessDetails from '../models/users/sellerBusinessDetails.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -169,6 +170,17 @@ export const createBankDetails = async (req, res) => {
       return sendSuccess(res, 'Bank details added successfully', { bankDetails });
   } catch (err) {
       return sendError(res, 'Failed to add bank details', err.message, 400);
+  }
+};
+
+// Create bank details
+export const businessDetails = async (req, res) => {
+  try {
+      req.body.seller_id = req.user._id;
+      const businessDetails = await SellerBusinessDetails.create(req.body);
+      return sendSuccess(res, 'Business details added successfully', { businessDetails });
+  } catch (err) {
+      return sendError(res, 'Failed to add Business details', err.message, 400);
   }
 };
 

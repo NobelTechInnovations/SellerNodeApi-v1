@@ -12,6 +12,7 @@ router.post('/login', registerValidator.userLogin, validate, userController.logi
 router.post('/request-otp', registerValidator.otpGenrate, validate, userController.otpGenrate);
 router.post('/verify-otp', registerValidator.verifyOtp, validate, userController.verifyOtp);
 router.post('/add-warehouse', auth, registerValidator.sellerWarehouse, validate, userController.sellerWarehouse);
-router.post('/add-bank-details', auth, registerValidator.createBankDetails, validate, userController.createBankDetails);
+router.post('/add-warehouse', auth, registerValidator.sellerWarehouse, validate, userController.sellerWarehouse);
+router.post('/business-data', auth, registerValidator.businessDetails, validate, userController.businessDetails);
 
 export default router;
