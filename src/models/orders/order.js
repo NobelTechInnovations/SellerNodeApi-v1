@@ -40,6 +40,8 @@ const orderSchema = new Schema({
   shipping: { type: Number, default: 0 },
   refund: { type: Number, default: 0 },
   extra: { type: Schema.Types.Mixed, default: {} },
+  orderProduct: { type: Schema.Types.ObjectId, ref: 'OrderProduct' },
 }, { timestamps: true });
+
 
 export default mongoose.model('Order', orderSchema);

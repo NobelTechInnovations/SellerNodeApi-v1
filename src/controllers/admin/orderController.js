@@ -5,19 +5,29 @@ import OrderVendor from '../../models/orders/orderVendor.js';
 export const storeOrder = async (req, res) => {
   try {
     const { order_products, order_vendor, ...orderData } = req.body;
+
+    // Step 1: Create and save the order
     const newOrder = new Order(orderData);
     await newOrder.save();
 
-    // Save order products
+    // Step 2: Insert order products and store their IDs
     if (order_products && order_products.length > 0) {
       const orderProducts = order_products.map(product => ({
         ...product,
         order_id: newOrder._id
       }));
-      await OrderProduct.insertMany(orderProducts);
+      const insertedProducts = await OrderProduct.insertMany(orderProducts);
+      const productIds = insertedProducts.map(p => p._id);
+
+      // Update Order with product IDs
+      await Order.findByIdAndUpdate(
+        newOrder._id,
+        { $set: { orderProduct: productIds } },
+        { new: true }
+      );
     }
 
-    // Save order vendor
+    // Step 3: Add order vendor details
     if (order_vendor) {
       const newOrderVendor = new OrderVendor({
         ...order_vendor,
@@ -26,8 +36,11 @@ export const storeOrder = async (req, res) => {
       await newOrderVendor.save();
     }
 
+    // Step 4: Return final response
     res.status(201).json({ success: true, data: newOrder });
+
   } catch (error) {
+    console.error('Order creation error:', error);
     res.status(400).json({ success: false, error: error.message });
   }
-}; 
+};

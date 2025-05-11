@@ -3,7 +3,6 @@ import mongoose from 'mongoose';
 const { Schema } = mongoose;
 
 const orderProductSchema = new Schema({
-  order_id: { type: Schema.Types.ObjectId, required: true, ref: 'Order' },
   sku: { type: String },
   productId: { type: Schema.Types.ObjectId, ref: 'Product' },
   product_type: { type: String },

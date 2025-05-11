@@ -2,13 +2,29 @@ import Order from '../../models/orders/order.js';
 
 export const getOrdersBySellerId = async (req, res) => {
   try {
-    const sellerId  = req.user._id;
-    // const orders = await Order.find({ sellerId });
-    const orders = await Order.find({});
-    res.status(200).json({ success: true, data: orders });
+    const sellerId = req.user._id;
+  
+    // Fetch orders and populate orderProducts if it's a ref
+    const orders = await Order.find({}).populate("orderProduct");
+  
+    // Group by status
+    const groupedOrders = {
+      pending: [],
+      processing: [],
+      shipped: [],
+    };
+  
+    orders.forEach(order => {
+      if (groupedOrders[order.status]) {
+        groupedOrders[order.status].push(order);
+      }
+    });
+  
+    res.status(200).json({ success: true, data: groupedOrders });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
   }
+  
 }; 
 
 export const processOrder = async (req, res) => {
