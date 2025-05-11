@@ -163,7 +163,7 @@ export const sellerWarehouse = async (req, res) => {
 };
 
 // Create bank details
-export const createBankDetails = async (req, res) => {
+export const sellerBankDetails = async (req, res) => {
   try {
       req.body.seller_id = req.user._id;
       const bankDetails = await SellerBankDetails.create(req.body);
