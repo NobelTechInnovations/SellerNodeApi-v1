@@ -8,7 +8,6 @@ const sellerBankDetailsSchema = new mongoose.Schema({
     },
     bank_name: {
         type: String,
-        required: [true, 'Bank name is required'],
         trim: true
     },
     account_number: {
@@ -29,10 +28,7 @@ const sellerBankDetailsSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
-    swift_code: {
-        type: String,
-        trim: true
-    },
+
     is_primary: {
         type: Boolean,
         default: false
