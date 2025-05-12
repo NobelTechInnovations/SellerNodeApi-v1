@@ -21,8 +21,6 @@ const upload = multer({
 router.post('/', 
   auth, 
   upload.array('images', 10), // Allow up to 10 images
-  createProduct, 
-  validate, 
   productController.createProduct
 );
 // Get all products
