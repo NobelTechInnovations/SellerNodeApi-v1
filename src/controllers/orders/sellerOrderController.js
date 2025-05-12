@@ -10,11 +10,18 @@ export const getOrdersBySellerId = async (req, res) => {
     // Group by status
     const groupedOrders = {
       pending: [],
-      processing: [],
-      shipped: [],
-      rejected: [],
-      ready_to_ship: [],
-      cancelled: [],
+      processing: [
+        'processing',
+        'ready_to_ship',
+      ],
+      shipped: [
+        'shipped',
+        'out_for_delivery',
+      ],
+      cancelled: [
+        'cancelled',
+        'rejected',
+      ],
       delivered: [],
     };
   
