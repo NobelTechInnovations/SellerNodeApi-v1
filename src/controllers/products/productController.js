@@ -7,29 +7,24 @@ import slugify from 'slugify';
 import ProductSellerSKU from '../../models/products/productSellerSku.js';
 import crypto from 'crypto';
 import { uploadToS3 } from '../../utils/s3Service.js';
+import { upload } from '../../middleware/upload.js';
 
     // Create product with transaction
     export const createProduct = async (req, res) => {
+        console.log(req.body);
         let session;
         try {
             // Start MongoDB session
             session = await mongoose.startSession();
             session.startTransaction();
 
-            const { product, title } = req.body;
-            const files = req.files;
+            // Parse the 'product', 'title' and 'images' fields from the request body
+            const product = typeof req.body.product === 'string' ? JSON.parse(req.body.product) : req.body.product;
+            const title = typeof req.body.title === 'string' ? JSON.parse(req.body.title) : req.body.title;
+            const images = req.body.images || [];
 
-            if (!product || !files || !title) {
-                return sendError(res, 'Missing required product, images, or title data', null, 400);
-            }
-
-            // Upload images to S3
-            const uploadedImages = [];
-            if (files.images) {
-                for (const file of files.images) {
-                    const imageUrl = await uploadToS3(file, 'products');
-                    uploadedImages.push(imageUrl);
-                }
+            if (!product || !title) {
+                return sendError(res, 'Missing required product or title data', null, 400);
             }
 
             product.slug = await generateUniqueSlug(title.title || 'product');
@@ -40,8 +35,8 @@ import { uploadToS3 } from '../../utils/s3Service.js';
 
             const productImages = {
                 product_id: createdProduct.product_id,
-                thumbnail_image: uploadedImages[0] || null,
-                gallery_images: uploadedImages.slice(1)
+                thumbnail_image: images[0] || null,
+                gallery_images: images.slice(1)
             };
             await Images.create([productImages], { session });
 
@@ -100,7 +95,7 @@ import { uploadToS3 } from '../../utils/s3Service.js';
   
 
 // Get all products with pagination and filters
-export const getProducts = async (req, res) => {
+export const getAllProducts = async (req, res) => {
     try {
         const { page = 1, limit = 10, status, category_id, condition } = req.query;
         const query = {};
@@ -134,19 +129,59 @@ export const getProducts = async (req, res) => {
         return sendError(res, 'Failed to retrieve products', err.message, 400);
     }
 };
-
 // Get single product by ID
 export const getProduct = async (req, res) => {
     try {
-        const product = await Product.findOne({ product_id: req.params.product_id })
-            .populate('category_id', 'name slug')
-            .lean();
+        const fullProduct = await Product.aggregate([
+            { $match: { product_id: req.params.product_id } },
+            {
+              $lookup: {
+                from: 'productimages',
+                localField: 'product_id',
+                foreignField: 'product_id',
+                as: 'images'
+              }
+            },
+            {
+              $lookup: {
+                from: 'productdescriptions',
+                let: { pid: '$product_id' },
+                pipeline: [
+                  { $match: { $expr: { $eq: ['$product_id', '$$pid'] }, language: 'en' } }
+                ],
+                as: 'description'
+              }
+            },
+            {
+                $lookup: {
+                  from: 'categories', // Assuming your Category model is named 'categories'
+                  localField: 'category_id',
+                  foreignField: '_id', // Category model's ID field
+                  as: 'category'
+                }
+            },
+            { $unwind: { path: '$images', preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: '$description', preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },   
+            {
+              $project: {
+                product_id: 1,
+                unified_sku: 1,
+                status: 1,
+                title: '$description.title',
+                thumbnail_image: '$images.thumbnail_image',
+                gallery_images: '$images.gallery_images',
+                category: '$category.name'
+              }
+            }
+        ]);
 
-        if (!product) {
+        if (!fullProduct || fullProduct.length === 0) {
             return sendError(res, 'Product not found', {}, 404);
         }
 
-        return sendSuccess(res, 'Product retrieved successfully', { product });
+        return sendSuccess(res, 'Product retrieved successfully', { product: fullProduct[0] });
+        
     } catch (err) {
         return sendError(res, 'Failed to retrieve product', err.message, 400);
     }
@@ -159,8 +194,7 @@ export const updateProduct = async (req, res) => {
         session = await mongoose.startSession();
         session.startTransaction();
 
-        const { product, title } = req.body;
-        const files = req.files;
+        const { product, title, images } = req.body;
         const productId = req.params.product_id;
 
         if (!productId) {
@@ -179,19 +213,13 @@ export const updateProduct = async (req, res) => {
             return sendError(res, 'Product not found', {}, 404);
         }
 
-        // Upload and update images if provided
-        if (files && files.images) {
-            const uploadedImages = [];
-            for (const file of files.images) {
-                const imageUrl = await uploadToS3(file, 'products');
-                uploadedImages.push(imageUrl);
-            }
-
+        // Update images if provided
+        if (images && Array.isArray(images)) {
             await Images.findOneAndUpdate(
                 { product_id: productId },
                 { 
-                    thumbnail_image: uploadedImages[0] || updatedProduct.thumbnail_image,
-                    gallery_images: uploadedImages.slice(1)
+                    thumbnail_image: images[0] || updatedProduct.thumbnail_image,
+                    gallery_images: images.slice(1)
                 },
                 { new: true, session, upsert: true }
             );

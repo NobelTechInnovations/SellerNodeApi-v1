@@ -20,19 +20,15 @@ const upload = multer({
 // Create product
 router.post('/', 
   auth, 
-  upload.array('images', 10), // Allow up to 10 images
   productController.createProduct
 );
 // Get all products
-router.get('/', auth, productController.getProducts);
+router.get('/', auth, productController.getAllProducts);
 // Get single product
 router.get('/:product_id', auth, productController.getProduct);
 // Update product
 router.put('/:product_id', 
   auth, 
-  upload.array('images', 10), // Allow up to 10 images
-  updateProduct, 
-  validate, 
   productController.updateProduct
 );
 // Delete product
