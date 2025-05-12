@@ -7,21 +7,20 @@ export const getOrdersBySellerId = async (req, res) => {
     // Fetch orders and populate orderProducts if it's a ref
     const orders = await Order.find({}).populate("orderProduct");
   
-    // Group by status
+    const statusGroups = {
+      pending: ['pending'],
+      processing: ['processing', 'ready_to_ship'],
+      shipped: ['shipped', 'out_for_delivery'],
+      cancelled: ['cancelled', 'rejected'],
+      delivered: ['delivered'],
+    };
+    
+    // Initialize grouped structure
     const groupedOrders = {
       pending: [],
-      processing: [
-        'processing',
-        'ready_to_ship',
-      ],
-      shipped: [
-        'shipped',
-        'out_for_delivery',
-      ],
-      cancelled: [
-        'cancelled',
-        'rejected',
-      ],
+      processing: [],
+      shipped: [],
+      cancelled: [],
       delivered: [],
     };
   
