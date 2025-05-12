@@ -29,8 +29,6 @@ router.post('/business-data',
     { name: 'pan_card', maxCount: 1 },
     { name: 'business_proof', maxCount: 1 }
   ]),
-  registerValidator.businessDetails, 
-  validate, 
   userController.businessDetails
 );
 
