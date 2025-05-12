@@ -12,6 +12,10 @@ export const getOrdersBySellerId = async (req, res) => {
       pending: [],
       processing: [],
       shipped: [],
+      rejected: [],
+      ready_to_ship: [],
+      cancelled: [],
+      delivered: [],
     };
   
     orders.forEach(order => {
