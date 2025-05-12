@@ -5,17 +5,38 @@ import auth from '../../../../src/middleware/auth.js';
 import * as productController from '../../../../src/controllers/products/productController.js';
 import { createCategory, updateCategory, getCategory, deleteCategory } from '../../../../src/validators/products/category.js';
 import * as categoryController from '../../../../src/controllers/products/categoryController.js';
+import multer from 'multer';
 
 const router = express.Router();
 
+// Configure multer for memory storage
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  }
+});
+
 // Create product
-router.post('/', auth, productController.createProduct);
+router.post('/', 
+  auth, 
+  upload.array('images', 10), // Allow up to 10 images
+  createProduct, 
+  validate, 
+  productController.createProduct
+);
 // Get all products
 router.get('/', auth, productController.getProducts);
 // Get single product
 router.get('/:product_id', auth, productController.getProduct);
 // Update product
-router.put('/:product_id', auth, updateProduct, validate, productController.updateProduct);
+router.put('/:product_id', 
+  auth, 
+  upload.array('images', 10), // Allow up to 10 images
+  updateProduct, 
+  validate, 
+  productController.updateProduct
+);
 // Delete product
 router.delete('/:product_id', auth, productController.deleteProduct);
 // Update product status

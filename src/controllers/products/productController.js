@@ -6,6 +6,7 @@ import { sendSuccess, sendError } from '../../utils/responseHandler.js';
 import slugify from 'slugify'; 
 import ProductSellerSKU from '../../models/products/productSellerSku.js';
 import crypto from 'crypto';
+import { uploadToS3 } from '../../utils/s3Service.js';
 
     // Create product with transaction
     export const createProduct = async (req, res) => {
@@ -15,21 +16,32 @@ import crypto from 'crypto';
             session = await mongoose.startSession();
             session.startTransaction();
 
-            const { product, images, title } = req.body;
+            const { product, title } = req.body;
+            const files = req.files;
 
-            if (!product || !images || !title) {
+            if (!product || !files || !title) {
                 return sendError(res, 'Missing required product, images, or title data', null, 400);
+            }
+
+            // Upload images to S3
+            const uploadedImages = [];
+            if (files.images) {
+                for (const file of files.images) {
+                    const imageUrl = await uploadToS3(file, 'products');
+                    uploadedImages.push(imageUrl);
+                }
             }
 
             product.slug = await generateUniqueSlug(title.title || 'product');
             product.slug_hash = generateSlugHash(product.slug);
+            
             // Create product within transaction
             const [createdProduct] = await Product.create([product], { session });
 
             const productImages = {
                 product_id: createdProduct.product_id,
-                thumbnail_image: images[0] || null,
-                gallery_images: images.slice(1)
+                thumbnail_image: uploadedImages[0] || null,
+                gallery_images: uploadedImages.slice(1)
             };
             await Images.create([productImages], { session });
 
@@ -147,7 +159,8 @@ export const updateProduct = async (req, res) => {
         session = await mongoose.startSession();
         session.startTransaction();
 
-        const { product, images, title } = req.body;
+        const { product, title } = req.body;
+        const files = req.files;
         const productId = req.params.product_id;
 
         if (!productId) {
@@ -166,11 +179,20 @@ export const updateProduct = async (req, res) => {
             return sendError(res, 'Product not found', {}, 404);
         }
 
-        // Update images if provided
-        if (images && images.gallery_images) {
+        // Upload and update images if provided
+        if (files && files.images) {
+            const uploadedImages = [];
+            for (const file of files.images) {
+                const imageUrl = await uploadToS3(file, 'products');
+                uploadedImages.push(imageUrl);
+            }
+
             await Images.findOneAndUpdate(
                 { product_id: productId },
-                { gallery_images: images.gallery_images.map(img => img.url) },
+                { 
+                    thumbnail_image: uploadedImages[0] || updatedProduct.thumbnail_image,
+                    gallery_images: uploadedImages.slice(1)
+                },
                 { new: true, session, upsert: true }
             );
         }
