@@ -40,7 +40,7 @@ const productSchema = new mongoose.Schema({
     category_id: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Category',
-        required: [true, 'Category ID is required']
+        // required: [true, 'Category ID is required']
     },
     condition: {
         type: String,
