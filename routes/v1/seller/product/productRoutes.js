@@ -9,7 +9,7 @@ import * as categoryController from '../../../../src/controllers/products/catego
 const router = express.Router();
 
 // Create product
-router.post('/', auth, createProduct, validate, productController.createProduct);
+router.post('/', auth, productController.createProduct);
 // Get all products
 router.get('/', auth, productController.getProducts);
 // Get single product

@@ -3,50 +3,89 @@ import Product from '../../models/products/product.js';
 import Images from '../../models/products/productImage.js';
 import Titles from '../../models/products/productDescription.js';
 import { sendSuccess, sendError } from '../../utils/responseHandler.js';
+import slugify from 'slugify'; 
+import ProductSellerSKU from '../../models/products/productSellerSku.js';
+import crypto from 'crypto';
 
-// Create product with transaction
-export const createProduct = async (req, res) => {
-    let session;
-    try {
-        // Start MongoDB session
-        session = await mongoose.startSession();
-        session.startTransaction();
+    // Create product with transaction
+    export const createProduct = async (req, res) => {
+        let session;
+        try {
+            // Start MongoDB session
+            session = await mongoose.startSession();
+            session.startTransaction();
 
-        const { product, images, title } = req.body;
+            const { product, images, title } = req.body;
 
-        if (!product || !images || !title) {
-            return sendError(res, 'Missing required product, images, or title data', null, 400);
+            if (!product || !images || !title) {
+                return sendError(res, 'Missing required product, images, or title data', null, 400);
+            }
+
+            product.slug = await generateUniqueSlug(title.title || 'product');
+            product.slug_hash = generateSlugHash(product.slug);
+            // Create product within transaction
+            const [createdProduct] = await Product.create([product], { session });
+
+            const productImages = {
+                product_id: createdProduct.product_id,
+                thumbnail_image: images[0] || null,
+                gallery_images: images.slice(1)
+            };
+            await Images.create([productImages], { session });
+
+            // Assign title
+            title.product_id = createdProduct.product_id;
+            await Titles.create([{
+                product_id: createdProduct.product_id,
+                title: title.title,
+                description: title.description,
+                language: 'en'
+            }], { session });
+
+            // Assign product to seller
+            const sellerSku = {
+                product_id: createdProduct.product_id,
+                seller_id: req.user._id
+            };
+            await ProductSellerSKU.create([sellerSku], { session });
+            await session.commitTransaction();
+            
+            return sendSuccess(res, 'Product created successfully', { product: {
+                _id: createdProduct._id,
+                product_id: createdProduct.product_id,
+                unified_sku: createdProduct.unified_sku
+            } });
+
+        } catch (err) {
+            // If any error occurs, abort the transaction
+            if (session) {
+                await session.abortTransaction();
+            }
+            return sendError(res, 'Failed to create product', err.message, 422);
+        } finally {
+            // End the session
+            if (session) {
+                await session.endSession();
+            }
+        }
+    };
+
+    async function generateUniqueSlug(title) {
+        const baseSlug = slugify(title, { lower: true, strict: true });
+        let slug = baseSlug;
+        let count = 1;
+
+        while (await Product.findOne({ slug })) {
+            slug = `${baseSlug}_${count}`;
+            count++;
         }
 
-        // Add created_by from the authenticated user
-        product.created_by = req.user._id;
-        
-        // Create product within transaction
-        const [createdProduct] = await Product.create([product], { session });
-
-        images.product_id = createdProduct.product_id;
-        title.product_id = createdProduct.product_id;
-
-        await Images.create([images], { session });
-        await Titles.create([title], { session }); // Fixed typo here
-
-        // Commit the transaction
-        await session.commitTransaction();
-        
-        return sendSuccess(res, 'Product created successfully', { product: createdProduct });
-    } catch (err) {
-        // If any error occurs, abort the transaction
-        if (session) {
-            await session.abortTransaction();
-        }
-        return sendError(res, 'Failed to create product', err.message, 422);
-    } finally {
-        // End the session
-        if (session) {
-            await session.endSession();
-        }
+        return slug;
     }
-};
+    function generateSlugHash(title) {
+        return crypto.createHash('md5').update(title + Date.now()).digest('hex');
+    }
+  
 
 // Get all products with pagination and filters
 export const getProducts = async (req, res) => {

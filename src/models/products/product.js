@@ -18,14 +18,19 @@ const productSchema = new mongoose.Schema({
         enum: ['draft', 'published', 'archived','varification_pending','varification_failed'],
         default: 'draft'
     },
-    created_by: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
-    },
+    // created_by: {
+    //     type: mongoose.Schema.Types.ObjectId,
+    //     ref: 'User',
+    //     required: true
+    // },
     slug: {
         type: String,
         trim: true,
+        unique: true
+    },
+    slug_hash: {
+        type: String,
+        required: true,
         unique: true
     },
     type: {
@@ -40,7 +45,8 @@ const productSchema = new mongoose.Schema({
     condition: {
         type: String,
         enum: ['new', 'used', 'refurbished'],
-        required: [true, 'Product condition is required']
+        default: 'new'
+        // required: [true, 'Product condition is required']
     },
     deleted_at: {
         type: Date,
