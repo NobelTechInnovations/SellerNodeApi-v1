@@ -13,6 +13,7 @@ const orderSchema = new Schema({
       'payment_received',
       'confirmed',
       'processing',
+      'ready_to_ship',
       'shipped',
       'out_for_delivery',
       'delivered',

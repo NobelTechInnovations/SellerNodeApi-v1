@@ -38,6 +38,8 @@ export const processOrder = async (req, res) => {
     }
     if(order_process == "accept"){
       order.status = "processing";
+    }else if(order_process == "ready_to_ship"){
+      order.status = "ready_to_ship";
     }else{
       order.status = "rejected";
     }
