@@ -53,7 +53,24 @@ const productSchema = new mongoose.Schema({
         default: null
     }
 }, {
-    timestamps: true
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+});
+
+// Add virtual fields for related data
+productSchema.virtual('images', {
+    ref: 'ProductImage',
+    localField: 'product_id',
+    foreignField: 'product_id',
+    justOne: false
+});
+
+productSchema.virtual('descriptions', {
+    ref: 'ProductDescription',
+    localField: 'product_id',
+    foreignField: 'product_id',
+    justOne: false
 });
 
 // Auto-increment product_id in format AGRP{YEAR}00001

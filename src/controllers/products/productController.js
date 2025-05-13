@@ -94,218 +94,244 @@ import { upload } from '../../middleware/upload.js';
     }
   
 
-// Get all products with pagination and filters
-export const getAllProducts = async (req, res) => {
-    try {
-        const { page = 1, limit = 10, status, category_id, condition } = req.query;
-        const query = {};
-
-        // Build query based on filters
-        if (status) query.status = status;
-        if (category_id) query.category_id = category_id;
-        if (condition) query.condition = condition;
-
-        // Get products with pagination
-        const products = await Product.find(query)
-            .sort({ created_at: -1 })
+    export const getAllProducts = async (req, res) => {
+        try {
+            const { page = 1, limit = 10 } = req.query;
+            const sellerId = req.user?._id;
+    
+            if (!sellerId) {
+                return sendError(res, 'Unauthorized: seller ID not found in token', '', 401);
+            }
+    
+            // First get all product IDs for this seller
+            const sellerSkus = await ProductSellerSKU.find({ seller_id: sellerId })
+                .select('product_id')
+                .lean();
+    
+            const productIds = sellerSkus.map(sku => sku.product_id);
+    
+            // Then fetch products with populated data
+            const products = await Product.find({ 
+                product_id: { $in: productIds },
+                deleted_at: null 
+            })
+            .sort({ createdAt: -1 })
             .skip((page - 1) * limit)
             .limit(parseInt(limit))
-            .populate('category_id', 'name slug')
+            .populate('category_id', 'name')
+            .populate({
+                path: 'images',
+                select: 'thumbnail_image',
+                model: 'ProductImage'
+            })
+            .populate({
+                path: 'descriptions',
+                match: { language: 'en' },
+                select: 'title',
+                model: 'ProductDescription'
+            })
             .lean();
-
-        // Get total count for pagination
-        const total = await Product.countDocuments(query);
-
-        return sendSuccess(res, 'Products retrieved successfully', {
-            products,
-            pagination: {
-                total,
-                page: parseInt(page),
-                limit: parseInt(limit),
-                pages: Math.ceil(total / limit)
-            }
-        });
-    } catch (err) {
-        return sendError(res, 'Failed to retrieve products', err.message, 400);
-    }
-};
-// Get single product by ID
-export const getProduct = async (req, res) => {
-    try {
-        const fullProduct = await Product.aggregate([
-            { $match: { product_id: req.params.product_id } },
-            {
-              $lookup: {
-                from: 'productimages',
-                localField: 'product_id',
-                foreignField: 'product_id',
-                as: 'images'
-              }
-            },
-            {
-              $lookup: {
-                from: 'productdescriptions',
-                let: { pid: '$product_id' },
-                pipeline: [
-                  { $match: { $expr: { $eq: ['$product_id', '$$pid'] }, language: 'en' } }
-                ],
-                as: 'description'
-              }
-            },
-            {
-                $lookup: {
-                  from: 'categories', // Assuming your Category model is named 'categories'
-                  localField: 'category_id',
-                  foreignField: '_id', // Category model's ID field
-                  as: 'category'
+    
+            // Get total count for pagination
+            const total = await Product.countDocuments({ 
+                product_id: { $in: productIds },
+                deleted_at: null 
+            });
+    
+            return sendSuccess(res, 'Products retrieved successfully', {
+                products,
+                pagination: {
+                    total,
+                    page: parseInt(page),
+                    limit: parseInt(limit),
+                    pages: Math.ceil(total / limit)
                 }
-            },
-            { $unwind: { path: '$images', preserveNullAndEmptyArrays: true } },
-            { $unwind: { path: '$description', preserveNullAndEmptyArrays: true } },
-            { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },   
-            {
-              $project: {
-                product_id: 1,
-                unified_sku: 1,
-                status: 1,
-                title: '$description.title',
-                thumbnail_image: '$images.thumbnail_image',
-                gallery_images: '$images.gallery_images',
-                category: '$category.name'
-              }
+            });
+    
+        } catch (err) {
+            console.error(err);
+            return sendError(res, 'Failed to retrieve products', err.message, 400);
+        }
+    };
+
+
+    // Get single product by ID
+    export const getProduct = async (req, res) => {
+        try {
+            const fullProduct = await Product.aggregate([
+                { $match: { product_id: req.params.product_id } },
+                {
+                $lookup: {
+                    from: 'productimages',
+                    localField: 'product_id',
+                    foreignField: 'product_id',
+                    as: 'images'
+                }
+                },
+                {
+                $lookup: {
+                    from: 'productdescriptions',
+                    let: { pid: '$product_id' },
+                    pipeline: [
+                    { $match: { $expr: { $eq: ['$product_id', '$$pid'] }, language: 'en' } }
+                    ],
+                    as: 'description'
+                }
+                },
+                {
+                    $lookup: {
+                    from: 'categories', // Assuming your Category model is named 'categories'
+                    localField: 'category_id',
+                    foreignField: '_id', // Category model's ID field
+                    as: 'category'
+                    }
+                },
+                { $unwind: { path: '$images', preserveNullAndEmptyArrays: true } },
+                { $unwind: { path: '$description', preserveNullAndEmptyArrays: true } },
+                { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },   
+                {
+                $project: {
+                    product_id: 1,
+                    unified_sku: 1,
+                    status: 1,
+                    title: '$description.title',
+                    thumbnail_image: '$images.thumbnail_image',
+                    gallery_images: '$images.gallery_images',
+                    category: '$category.name'
+                }
+                }
+            ]);
+
+            if (!fullProduct || fullProduct.length === 0) {
+                return sendError(res, 'Product not found', {}, 404);
             }
-        ]);
 
-        if (!fullProduct || fullProduct.length === 0) {
-            return sendError(res, 'Product not found', {}, 404);
+            return sendSuccess(res, 'Product retrieved successfully', { product: fullProduct[0] });
+            
+        } catch (err) {
+            return sendError(res, 'Failed to retrieve product', err.message, 400);
         }
+    };
 
-        return sendSuccess(res, 'Product retrieved successfully', { product: fullProduct[0] });
-        
-    } catch (err) {
-        return sendError(res, 'Failed to retrieve product', err.message, 400);
-    }
-};
+    // Update product with transaction
+    export const updateProduct = async (req, res) => {
+        let session;
+        try {
+            session = await mongoose.startSession();
+            session.startTransaction();
 
-// Update product with transaction
-export const updateProduct = async (req, res) => {
-    let session;
-    try {
-        session = await mongoose.startSession();
-        session.startTransaction();
+            const { product, title, images } = req.body;
+            const productId = req.params.product_id;
 
-        const { product, title, images } = req.body;
-        const productId = req.params.product_id;
+            if (!productId) {
+                return sendError(res, 'Product ID is required', null, 400);
+            }
 
-        if (!productId) {
-            return sendError(res, 'Product ID is required', null, 400);
-        }
-
-        // Update the product
-        const updatedProduct = await Product.findOneAndUpdate(
-            { product_id: productId },
-            { ...product },
-            { session }
-        );
-
-        if (!updatedProduct) {
-            await session.abortTransaction();
-            return sendError(res, 'Product not found', {}, 404);
-        }
-
-        // Update images if provided
-        if (images && Array.isArray(images)) {
-            await Images.findOneAndUpdate(
+            // Update the product
+            const updatedProduct = await Product.findOneAndUpdate(
                 { product_id: productId },
-                { 
-                    thumbnail_image: images[0] || updatedProduct.thumbnail_image,
-                    gallery_images: images.slice(1)
-                },
-                { new: true, session, upsert: true }
+                { ...product },
+                { session }
             );
-        }
 
-        // Update title if provided
-        if (title) {
-            await Titles.findOneAndUpdate(
+            if (!updatedProduct) {
+                await session.abortTransaction();
+                return sendError(res, 'Product not found', {}, 404);
+            }
+
+            // Update images if provided
+            if (images && Array.isArray(images)) {
+                await Images.findOneAndUpdate(
+                    { product_id: productId },
+                    { 
+                        thumbnail_image: images[0] || updatedProduct.thumbnail_image,
+                        gallery_images: images.slice(1)
+                    },
+                    { new: true, session, upsert: true }
+                );
+            }
+
+            // Update title if provided
+            if (title) {
+                await Titles.findOneAndUpdate(
+                    { product_id: productId },
+                    { 
+                        title: title.title,
+                        description: title.description,
+                        language: 'en'
+                    },
+                    { new: true, session, upsert: true }
+                );
+            }
+
+            await session.commitTransaction();
+            return sendSuccess(res, 'Product updated successfully', { product: updatedProduct });
+        } catch (err) {
+            if (session) {
+                await session.abortTransaction();
+            }
+            return sendError(res, 'Failed to update product', err.message, 400);
+        } finally {
+            if (session) {
+                await session.endSession();
+            }
+        }
+    };
+
+    // Delete product (soft delete)
+    export const deleteProduct = async (req, res) => {
+        let session;
+        try {
+            session = await mongoose.startSession();
+            session.startTransaction();
+
+            const product = await Product.findOneAndUpdate(
+                { product_id: req.params.product_id },
+                { deleted_at: new Date() },
+                { new: true, session }
+            );
+
+            if (!product) {
+                await session.abortTransaction();
+                return sendError(res, 'Product not found', {}, 404);
+            }
+
+            await session.commitTransaction();
+            return sendSuccess(res, 'Product deleted successfully');
+        } catch (err) {
+            if (session) {
+                await session.abortTransaction();
+            }
+            return sendError(res, 'Failed to delete product', err.message, 400);
+        } finally {
+            if (session) {
+                await session.endSession();
+            }
+        }
+    };
+
+    // Update product status
+    export const updateProductStatus = async (req, res) => {
+        try {
+            const { status } = req.body;
+            const productId = req.params.product_id;
+
+            if (!status) {
+                return sendError(res, 'Status is required', null, 400);
+            }
+
+            const product = await Product.findOneAndUpdate(
                 { product_id: productId },
-                { 
-                    title: title.title,
-                    description: title.description,
-                    language: 'en'
-                },
-                { new: true, session, upsert: true }
+                { status },
+                { new: true }
             );
+
+            if (!product) {
+                return sendError(res, 'Product not found', {}, 404);
+            }
+
+            return sendSuccess(res, 'Product status updated successfully', { product });
+        } catch (err) {
+            return sendError(res, 'Failed to update product status', err.message, 400);
         }
-
-        await session.commitTransaction();
-        return sendSuccess(res, 'Product updated successfully', { product: updatedProduct });
-    } catch (err) {
-        if (session) {
-            await session.abortTransaction();
-        }
-        return sendError(res, 'Failed to update product', err.message, 400);
-    } finally {
-        if (session) {
-            await session.endSession();
-        }
-    }
-};
-
-// Delete product (soft delete)
-export const deleteProduct = async (req, res) => {
-    let session;
-    try {
-        session = await mongoose.startSession();
-        session.startTransaction();
-
-        const product = await Product.findOneAndUpdate(
-            { product_id: req.params.product_id },
-            { deleted_at: new Date() },
-            { new: true, session }
-        );
-
-        if (!product) {
-            await session.abortTransaction();
-            return sendError(res, 'Product not found', {}, 404);
-        }
-
-        await session.commitTransaction();
-        return sendSuccess(res, 'Product deleted successfully');
-    } catch (err) {
-        if (session) {
-            await session.abortTransaction();
-        }
-        return sendError(res, 'Failed to delete product', err.message, 400);
-    } finally {
-        if (session) {
-            await session.endSession();
-        }
-    }
-};
-
-// Update product status
-export const updateProductStatus = async (req, res) => {
-    try {
-        const { status } = req.body;
-        const productId = req.params.product_id;
-
-        if (!status) {
-            return sendError(res, 'Status is required', null, 400);
-        }
-
-        const product = await Product.findOneAndUpdate(
-            { product_id: productId },
-            { status },
-            { new: true }
-        );
-
-        if (!product) {
-            return sendError(res, 'Product not found', {}, 404);
-        }
-
-        return sendSuccess(res, 'Product status updated successfully', { product });
-    } catch (err) {
-        return sendError(res, 'Failed to update product status', err.message, 400);
-    }
-}; 
+    }; 

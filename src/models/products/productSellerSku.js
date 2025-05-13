@@ -1,15 +1,15 @@
 import mongoose from 'mongoose';
 
 const productSellerSkuSchema = new mongoose.Schema({
-    product_id: {
-        type: String,
-        required: true,
-        ref: 'Product'
+    product: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Product',
+        required: true
     },
     seller_id: {
         type: mongoose.Schema.Types.ObjectId,
-        required: true,
-        ref: 'User'
+        ref: 'User',
+        required: true
     }
 }, {
     timestamps: true
