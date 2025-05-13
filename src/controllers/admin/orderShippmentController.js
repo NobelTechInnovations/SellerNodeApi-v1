@@ -37,15 +37,14 @@ export const sendOrderToDriverForShippment = async (req, res) => {
         
         
         const driverOrders = [];
+
         for (const [sellerId, products] of Object.entries(sellerGroups)) {
            
-
             const sellerBusiness = await SellerBusinessDetails.findOne({ seller_id: sellerId });
             if (!sellerBusiness) {
                 console.error(`Seller business details not found for seller ${sellerId}`);
                 continue;
             }
-            
             
             const seller = await User.findById(sellerId);
             if (!seller) {
@@ -59,10 +58,9 @@ export const sendOrderToDriverForShippment = async (req, res) => {
                 continue;
             }
 
-            const deliveryAddress = customer.address;
-            const deliveryCoordinates = await getCoordinatesFromAddress(deliveryAddress);
+            const deliveryCoordinates = await getCoordinatesFromAddress(customer.address);
             if (!deliveryCoordinates) {
-                console.error(`Could not get coordinates for delivery address: ${deliveryAddress}`);
+                console.error(`Could not get coordinates for delivery address: ${customer.address}`);
                 continue;
             } 
 
@@ -73,7 +71,7 @@ export const sendOrderToDriverForShippment = async (req, res) => {
                 storePhone: seller.phone,
                 pickupAddress: sellerBusiness.business_address,
                 pickupPincode: sellerBusiness.pincode,
-                deliveryAddress: deliveryAddress,
+                deliveryAddress: customer.address,
                 deliveryPincode: customer.pincode,
                 pickupLocation: {
                     type: "Point",
@@ -94,7 +92,6 @@ export const sendOrderToDriverForShippment = async (req, res) => {
             };
             driverOrders.push(driverOrder);
         }
-
         // const driverAppApi = 'http://localhost:6000/api/admin/save-orders-for-delivery';
         const driverAppApi = 'https://delivery-app-api-production.up.railway.app/api/admin/save-orders-for-delivery';
 
