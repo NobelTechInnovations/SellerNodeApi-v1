@@ -14,6 +14,8 @@ const orderSchema = new Schema({
       'confirmed',
       'processing',
       'ready_to_ship',
+      'ready_to_pickup', // sent for driver
+      'driver_accepted',
       'shipped',
       'out_for_delivery',
       'delivered',
