@@ -11,6 +11,8 @@ export const getOrdersBySellerId = async (req, res) => {
     const groupedOrders = {
       pending: [],
       processing: [],
+      ready_to_pickup: [],
+      driver_accepted: [],
       shipped: [],
       rejected: [],
       ready_to_ship: [],
