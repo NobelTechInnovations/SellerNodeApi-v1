@@ -7,7 +7,8 @@ export const createAttribute = (req, res, next) => {
             'string.empty': 'Attribute name is required',
             'any.required': 'Attribute name is required'
         }),
-        isRequired: Joi.boolean().default(false)
+        isRequired: Joi.boolean().default(false),
+        type: Joi.string().valid('meta', 'variant').default('meta'),
     });
 
     const { error } = schema.validate(req.body);

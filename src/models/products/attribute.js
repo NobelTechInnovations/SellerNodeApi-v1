@@ -10,7 +10,12 @@ const attributeSchema = new mongoose.Schema({
     isRequired: {
         type: Boolean,
         default: false
-    }
+    },
+    type: {
+        type: String,
+        enum: ['meta', 'variant'],
+        default: 'meta'
+    },
 }, {
     timestamps: true
 });

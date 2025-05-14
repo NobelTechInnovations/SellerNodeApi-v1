@@ -1,5 +1,7 @@
 import Category from '../../models/products/category.js';
 import { sendSuccess, sendError } from '../../utils/responseHandler.js';
+import Attribute from '../../models/products/attribute.js';
+import CategoryAttribute from '../../models/products/categoryAttribute.js';
 
 // Create category
 export const createCategory = async (req, res) => {
@@ -41,29 +43,37 @@ export const createCategory = async (req, res) => {
     }
 };
 
-// Get all categories
+
+// Recursive function to get child categories
+const getChildren = async (parentId) => {
+    const children = await Category.find({ parent: parentId }).lean();
+
+    for (let child of children) {
+        const attrCount = await CategoryAttribute.countDocuments({ category_id: child._id });
+        child.attributeAvailable = attrCount > 0 ? 'yes' : 'no';
+
+        child.children = await getChildren(child._id); // Recursive call
+    }
+
+    return children;
+};
+
 export const getCategories = async (req, res) => {
     try {
-        const { page = 1, limit = 10, status } = req.query;
-        const query = {};
+        const masterCategories = await Category.find({ parent: null }).sort({ createdAt: -1 }).lean();
 
-        if (status) query.status = status;
+        const categoriesWithChildren = await Promise.all(
+            masterCategories.map(async (category) => {
+                const attrCount = await CategoryAttribute.countDocuments({ category_id: category._id });
+                category.attributeAvailable = attrCount > 0 ? 'yes' : 'no';
 
-        const categories = await Category.find(query)
-            .sort({ createdAt: -1 })
-            .skip((page - 1) * limit)
-            .limit(parseInt(limit));
+                category.children = await getChildren(category._id);
+                return category;
+            })
+        );
 
-        const total = await Category.countDocuments(query);
-
-        return sendSuccess(res, 'Categories retrieved successfully', {
-            categories,
-            pagination: {
-                total,
-                page: parseInt(page),
-                limit: parseInt(limit),
-                pages: Math.ceil(total / limit)
-            }
+        return sendSuccess(res, 'Master categories with children retrieved successfully', {
+            categories: categoriesWithChildren
         });
     } catch (err) {
         return sendError(res, 'Failed to retrieve categories', err.message, 400);
@@ -232,3 +242,57 @@ export const deleteCategory = async (req, res) => {
         return sendError(res, 'Failed to delete category', err.message, 400);
     }
 }; 
+
+
+
+export const mapAttributes = async (req, res) => {
+    try {
+        const { category_id } = req.params;
+        const { attribute_ids } = req.body;
+
+        if (!category_id || !Array.isArray(attribute_ids)) {
+            return sendError(res, 'Invalid data', 'Category ID and attribute IDs are required.', 400);
+        }
+
+        const category = await Category.findById(category_id);
+        if (!category) {
+            return sendError(res, 'Category not found', 'The category ID provided does not exist.', 404);
+        }
+
+        // 1. Remove all old mappings
+        await CategoryAttribute.deleteMany({ category_id });
+
+        // 2. Insert new mappings (if any)
+        if (attribute_ids.length > 0) {
+            const newMappings = attribute_ids.map(attribute_id => ({
+                category_id,
+                attribute_id
+            }));
+
+            await CategoryAttribute.insertMany(newMappings);
+        }
+
+        return sendSuccess(res, 'Attributes mapped successfully');
+    } catch (err) {
+        return sendError(res, 'Failed to map attributes', err.message, 400);
+    }
+};
+
+
+export const getMappedAttributes = async (req, res) => {
+    try {
+      const { category_id } = req.params;
+  
+      if (!category_id) {
+        return sendError(res, 'Category ID is required', null, 400);
+      }
+  
+      const categoryAttributes = await CategoryAttribute.find({ category_id }).populate('attribute_id');
+  
+      const attributes = categoryAttributes.map(row => row.attribute_id);
+  
+      return sendSuccess(res, 'Attributes fetched successfully', attributes);
+    } catch (err) {
+      return sendError(res, 'Failed to fetch attributes', err.message, 400);
+    }
+  };

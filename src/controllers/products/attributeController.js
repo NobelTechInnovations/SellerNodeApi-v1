@@ -1,4 +1,5 @@
 import Attribute from '../../models/products/attribute.js';
+import AttributeOption from '../../models/products/attributeOption.js';
 import { sendSuccess, sendError } from '../../utils/responseHandler.js';
 
 // Create attribute
@@ -27,15 +28,32 @@ export const getAttributes = async (req, res) => {
     try {
         const { page = 1, limit = 10 } = req.query;
 
-        const attributes = await Attribute.find()
-            .sort({ createdAt: -1 })
-            .skip((page - 1) * limit)
-            .limit(parseInt(limit));
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        const attributesWithOptions = await Attribute.aggregate([
+            {
+                $sort: { createdAt: -1 }
+            },
+            {
+                $skip: skip
+            },
+            {
+                $limit: parseInt(limit)
+            },
+            {
+                $lookup: {
+                    from: 'attributeoptions', // Collection name in lowercase & plural
+                    localField: '_id',
+                    foreignField: 'attributeId',
+                    as: 'options'
+                }
+            }
+        ]);
 
         const total = await Attribute.countDocuments();
 
-        return sendSuccess(res, 'Attributes retrieved successfully', {
-            attributes,
+        return sendSuccess(res, 'Attributes with options retrieved successfully', {
+            attributes: attributesWithOptions,
             pagination: {
                 total,
                 page: parseInt(page),
@@ -44,7 +62,7 @@ export const getAttributes = async (req, res) => {
             }
         });
     } catch (err) {
-        return sendError(res, 'Failed to retrieve attributes', err.message, 400);
+        return sendError(res, 'Failed to retrieve attributes with options', err.message, 400);
     }
 };
 
