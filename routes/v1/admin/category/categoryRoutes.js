@@ -3,7 +3,7 @@ import { validate } from '../../../../src/middleware/validate.js';
 import adminAuth from '../../../../src/middleware/adminAuth.js';
 import { upload, handleUploadError } from '../../../../src/middleware/upload.js';
 import { createCategory, updateCategory, getCategory, deleteCategory } from '../../../../src/validators/products/category.js';
-import * as categoryController from '../../../../src/controllers/products/categoryController.js';
+import * as categoryController from '../../../../src/controllers/admin/categoryController.js';
 import * as attributeController from '../../../../src/controllers/products/attributeController.js';
 const router = express.Router();
 

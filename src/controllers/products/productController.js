@@ -8,6 +8,10 @@ import ProductSellerSKU from '../../models/products/productSellerSku.js';
 import crypto from 'crypto';
 import { uploadToS3 } from '../../utils/s3Service.js';
 import { upload } from '../../middleware/upload.js';
+import Category from '../../models/products/category.js';
+import CategoryAttribute from '../../models/products/categoryAttribute.js';
+import Attribute from '../../models/products/attribute.js';
+import AttributeOption from '../../models/products/attributeOption.js';
 
     // Create product with transaction
     export const createProduct = async (req, res) => {
@@ -154,66 +158,7 @@ import { upload } from '../../middleware/upload.js';
         }
     };
 
-
-    // Get single product by ID
-    export const getProduct = async (req, res) => {
-        try {
-            const fullProduct = await Product.aggregate([
-                { $match: { product_id: req.params.product_id } },
-                {
-                $lookup: {
-                    from: 'productimages',
-                    localField: 'product_id',
-                    foreignField: 'product_id',
-                    as: 'images'
-                }
-                },
-                {
-                $lookup: {
-                    from: 'productdescriptions',
-                    let: { pid: '$product_id' },
-                    pipeline: [
-                    { $match: { $expr: { $eq: ['$product_id', '$$pid'] }, language: 'en' } }
-                    ],
-                    as: 'description'
-                }
-                },
-                {
-                    $lookup: {
-                    from: 'categories', // Assuming your Category model is named 'categories'
-                    localField: 'category_id',
-                    foreignField: '_id', // Category model's ID field
-                    as: 'category'
-                    }
-                },
-                { $unwind: { path: '$images', preserveNullAndEmptyArrays: true } },
-                { $unwind: { path: '$description', preserveNullAndEmptyArrays: true } },
-                { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },   
-                {
-                $project: {
-                    product_id: 1,
-                    unified_sku: 1,
-                    status: 1,
-                    title: '$description.title',
-                    thumbnail_image: '$images.thumbnail_image',
-                    gallery_images: '$images.gallery_images',
-                    category: '$category.name'
-                }
-                }
-            ]);
-
-            if (!fullProduct || fullProduct.length === 0) {
-                return sendError(res, 'Product not found', {}, 404);
-            }
-
-            return sendSuccess(res, 'Product retrieved successfully', { product: fullProduct[0] });
-            
-        } catch (err) {
-            return sendError(res, 'Failed to retrieve product', err.message, 400);
-        }
-    };
-
-    // Update product with transaction
+     // Update product with transaction
     export const updateProduct = async (req, res) => {
         let session;
         try {
@@ -335,3 +280,125 @@ import { upload } from '../../middleware/upload.js';
             return sendError(res, 'Failed to update product status', err.message, 400);
         }
     }; 
+
+
+
+
+
+    export const getProduct = async (req, res) => {
+        try {
+            const fullProduct = await Product.aggregate([
+                { $match: { product_id: req.params.product_id } },
+                {
+                    $lookup: {
+                        from: 'productimages',
+                        localField: 'product_id',
+                        foreignField: 'product_id',
+                        as: 'images'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'productdescriptions',
+                        let: { pid: '$product_id' },
+                        pipeline: [
+                            {
+                                $match: {
+                                    $expr: { $eq: ['$product_id', '$$pid'] },
+                                    language: 'en'
+                                }
+                            }
+                        ],
+                        as: 'description'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'categories',
+                        localField: 'category_id',
+                        foreignField: '_id',
+                        as: 'category'
+                    }
+                },
+                { $unwind: { path: '$images', preserveNullAndEmptyArrays: true } },
+                { $unwind: { path: '$description', preserveNullAndEmptyArrays: true } },
+                { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
+                {
+                    $project: {
+                        product_id: 1,
+                        unified_sku: 1,
+                        status: 1,
+                        title: '$description.title',
+                        thumbnail_image: '$images.thumbnail_image',
+                        gallery_images: '$images.gallery_images',
+                        category: 1
+                    }
+                }
+            ]);
+    
+            if (!fullProduct || fullProduct.length === 0) {
+                return sendError(res, 'Product not found', {}, 404);
+            }
+    
+            const product = fullProduct[0];
+    
+            // 🔁 Get full parent category hierarchy
+            const hierarchy = [];
+            let currentCategory = product.category;
+    
+            while (currentCategory?.parent) {
+                const parent = await Category.findById(currentCategory.parent).lean();
+                if (!parent) break;
+                hierarchy.unshift(parent);
+                currentCategory = parent;
+            }
+    
+            if (product.category) {
+                hierarchy.push(product.category); // include leaf category
+            }
+    
+            const categoryIds = hierarchy.map(cat => cat._id);
+    
+            // 🔍 Get mapped attributes for all categories in hierarchy
+            const categoryAttributes = await CategoryAttribute.find({
+                category_id: { $in: categoryIds }
+            }).populate('attribute_id').lean();
+    
+            // 🧠 Get unique attribute IDs
+            const attributeMap = new Map();
+            for (const entry of categoryAttributes) {
+                const attr = entry.attribute_id;
+                if (attr && !attributeMap.has(String(attr._id))) {
+                    attributeMap.set(String(attr._id), attr);
+                }
+            }
+    
+            const attributes = Array.from(attributeMap.values());
+    
+            // 🔍 Get all options for all attribute IDs
+            const attributeIds = attributes.map(attr => attr._id);
+            const options = await AttributeOption.find({
+                attributeId: { $in: attributeIds }
+            }).lean();
+    
+            // 🧩 Attach options to each attribute
+            const attributeWithOptions = attributes.map(attr => {
+                const attrOptions = options.filter(opt => String(opt.attributeId) === String(attr._id));
+                return {
+                    ...attr,
+                    options: attrOptions
+                };
+            });
+    
+            return sendSuccess(res, 'Product retrieved successfully', {
+                product: {
+                    ...product,
+                    category_hierarchy: hierarchy,
+                    attributes: attributeWithOptions
+                }
+            });
+    
+        } catch (err) {
+            return sendError(res, 'Failed to retrieve product', err.message, 400);
+        }
+    };

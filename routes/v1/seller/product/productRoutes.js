@@ -4,7 +4,7 @@ import { validate } from '../../../../src/middleware/validate.js';
 import auth from '../../../../src/middleware/auth.js';
 import * as productController from '../../../../src/controllers/products/productController.js';
 import { createCategory, updateCategory, getCategory, deleteCategory } from '../../../../src/validators/products/category.js';
-import * as categoryController from '../../../../src/controllers/products/categoryController.js';
+import * as categoryController from '../../../../src/controllers/admin/categoryController.js';
 import multer from 'multer';
 
 const router = express.Router();

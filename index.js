@@ -12,6 +12,7 @@ import attributeRoutes from './routes/v1/admin/attribute/attributeRoutes.js';
 import attributeOptionRoutes from './routes/v1/admin/attributeOption/attributeOptionRoutes.js';
 import authRoutes from './routes/v1/admin/auth/authRoutes.js';
 import categoryRoutes from './routes/v1/admin/category/categoryRoutes.js';
+import sellerCategoryRoutes from './routes/v1/seller/product/categoryRoutes.js';
 import productRoutes from './routes/v1/seller/product/productRoutes.js';
 import userRoutes from './routes/v1/seller/user/userRoutes.js';
 import orderRoutes from './routes/v1/admin/order/orderRoutes.js';
@@ -53,7 +54,7 @@ app.use('/v1/admin/order', orderRoutes);
 app.use('/v1/seller/product', productRoutes);
 app.use('/v1/seller/user', userRoutes);
 app.use('/v1/seller/order', sellerOrderRoutes);
-
+app.use('/v1/seller/category', sellerCategoryRoutes);
 
   // Base route
   app.get('/', (req, res) => {
