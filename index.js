@@ -17,6 +17,7 @@ import productRoutes from './routes/v1/seller/product/productRoutes.js';
 import userRoutes from './routes/v1/seller/user/userRoutes.js';
 import orderRoutes from './routes/v1/admin/order/orderRoutes.js';
 import sellerOrderRoutes from './routes/v1/seller/order/orderRoutes.js';
+import sellerPaymentRoutes from './routes/v1/seller/accounts/paymentRoutes.js';
 const app = express();
 
 // CORS configuration
@@ -60,6 +61,7 @@ app.use('/v1/seller/product', productRoutes);
 app.use('/v1/seller/user', userRoutes);
 app.use('/v1/seller/order', sellerOrderRoutes);
 app.use('/v1/seller/category', sellerCategoryRoutes);
+app.use('/v1/seller/payment', sellerPaymentRoutes);
 
   // Base route
   app.get('/', (req, res) => {

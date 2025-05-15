@@ -275,3 +275,167 @@ The API uses standard HTTP status codes to indicate the success or failure of re
 
 ### Seller Order Routes
 - `GET /api/seller/:sellerId/orders` - Fetch orders by seller ID 
+
+## Seller Payment API
+
+### Get Payment Summary
+- **Endpoint:** `GET /v1/seller/payment/summary`
+- **Description:** Retrieves a summary of a seller's payment information including total payments to date, outstanding payments, and payment trends.
+- **Authentication Required:** Yes, seller role required
+- **Response:**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "payments_to_date": 0,
+      "total_outstanding_payment": 5577.26,
+      "next_payment": {
+        "amount": 887,
+        "date": "2023-05-15T00:00:00.000Z"
+      },
+      "last_payment": {
+        "amount": 0,
+        "date": null
+      },
+      "payment_trends": [
+        {
+          "_id": "2023-04-21",
+          "total": 0
+        },
+        {
+          "_id": "2023-04-22",
+          "total": 0
+        },
+        // Additional data points...
+      ]
+    }
+  }
+  ```
+
+### Get Payment Details
+- **Endpoint:** `GET /v1/seller/payment/details`
+- **Description:** Retrieves detailed payment information with pagination.
+- **Authentication Required:** Yes, seller role required
+- **Query Parameters:**
+  - `page`: Page number (default: 1)
+  - `limit`: Number of items per page (default: 10)
+- **Response:**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "total_net_order_amount": 5577.26,
+      "total_net_ads_cost": 0,
+      "total_net_referral_earning": 0,
+      "total_amount": 5577.26,
+      "payments": [
+        {
+          "payment_date": "2023-05-23T00:00:00.000Z",
+          "order_amount": 162,
+          "ads_cost": 0,
+          "referrals": 0,
+          "net_amount": 162,
+          "status": "pending",
+          "details": "609c17a9e1b8f652734e8734"
+        },
+        {
+          "payment_date": "2023-05-22T00:00:00.000Z",
+          "order_amount": 172,
+          "ads_cost": 0,
+          "referrals": 0,
+          "net_amount": 172,
+          "status": "pending",
+          "details": "609c17a9e1b8f652734e8735"
+        }
+        // Additional payment records...
+      ],
+      "pagination": {
+        "total": 25,
+        "page": 1,
+        "limit": 10,
+        "pages": 3
+      }
+    }
+  }
+  ```
+
+### Get Single Payment Details
+- **Endpoint:** `GET /v1/seller/payment/details/:paymentId`
+- **Description:** Retrieves detailed information about a specific payment.
+- **Authentication Required:** Yes, seller role required
+- **URL Parameters:**
+  - `paymentId`: ID of the payment to retrieve
+- **Response:**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "payment_id": "609c17a9e1b8f652734e8734",
+      "payment_date": "2023-05-23T00:00:00.000Z",
+      "status": "pending",
+      "order_amount": 162,
+      "ads_cost": 0,
+      "referral_earnings": 0,
+      "shipping_charges": 0,
+      "return_shipping_charges": 0,
+      "net_amount": 162,
+      "transaction_id": null,
+      "orders": [
+        {
+          "order_id": "609c17a9e1b8f652734e8732",
+          "order_number": "AGR-456-2025061012313",
+          "product_name": "Smartphone X",
+          "amount": 162,
+          "status": "delivered",
+          "delivery_date": "2023-05-22T00:00:00.000Z",
+          "is_return": false,
+          "return_date": null,
+          "return_shipping_charge": 0
+        }
+        // Additional order details...
+      ]
+    }
+  }
+  ```
+
+### Calculate Seller Payments
+- **Endpoint:** `POST /v1/seller/payment/calculate`
+- **Description:** Calculates and updates a seller's payment data based on delivered and returned orders.
+- **Authentication Required:** Yes, seller role required
+- **Response:**
+  ```json
+  {
+    "success": true,
+    "message": "Payment calculated successfully",
+    "data": {
+      "payment_id": "609c17a9e1b8f652734e8736",
+      "net_amount": 400,
+      "order_count": 4
+    }
+  }
+  ```
+
+### Process Seller Payment
+- **Endpoint:** `POST /v1/seller/payment/process`
+- **Description:** Processes a payment to a seller and marks it as completed.
+- **Authentication Required:** Yes, seller role required
+- **Request Body:**
+  ```json
+  {
+    "paymentId": "609c17a9e1b8f652734e8736",
+    "transactionId": "TXN12345678"
+  }
+  ```
+- **Response:**
+  ```json
+  {
+    "success": true,
+    "message": "Payment processed successfully",
+    "data": {
+      "payment_id": "609c17a9e1b8f652734e8736",
+      "status": "completed",
+      "transaction_id": "TXN12345678",
+      "amount": 400
+    }
+  }
+  ``` 
