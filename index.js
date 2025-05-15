@@ -20,12 +20,12 @@ import sellerOrderRoutes from './routes/v1/seller/order/orderRoutes.js';
 const app = express();
 
 // CORS configuration
-// app.use(cors());
-app.use(cors({
-  origin: "https://agoraseller.vercel.app",
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  credentials: true,
-}));
+app.use(cors());
+// app.use(cors({
+//   origin: "https://agoraseller.vercel.app",
+//   methods: ["GET", "POST", "PUT", "DELETE"],
+//   credentials: true,
+// }));
 
 // Configure multer for file uploads
 const upload = multer({
