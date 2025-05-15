@@ -19,6 +19,7 @@ const orderSchema = new Schema({
       'shipped',
       'out_for_delivery',
       'delivered',
+      'rto_return',
       'return_requested',
       'return_in_process',
       'returned',
