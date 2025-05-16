@@ -136,6 +136,7 @@ export const verifyOtp = async (req, res) => {
     return sendSuccess(res, 'OTP verified successfully !', {
 
       "user" : {
+        "id" : user._id,
         "phone" : user.phone,
         "name" : user.name ? user.name : user.phone,
       },

@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/users/user.js';
+import mongoose from 'mongoose';
 
 const auth = async (req, res, next) => {
     try {
@@ -71,23 +72,60 @@ const auth = async (req, res, next) => {
             });
         }
 
-        const user = await User.findById(decoded.id);
+        try {
+            // Check MongoDB connection state
+            if (mongoose.connection.readyState !== 1) {
+                console.error('MongoDB not connected when trying to authenticate user');
+                return res.status(503).json({
+                    success: false,
+                    message: 'Database connection unavailable',
+                    error: 'DB_UNAVAILABLE'
+                });
+            }
 
-        if (!user) {
-            console.error('User not found for token:', {
-                userId: decoded.id,
+            // Set timeout for database query
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Database query timeout')), 5000);
             });
-            return res.status(401).json({ 
+
+            // Race between the user lookup and the timeout
+            const user = await Promise.race([
+                User.findById(decoded.id),
+                timeoutPromise
+            ]);
+
+            if (!user) {
+                console.error('User not found for token:', {
+                    userId: decoded.id,
+                });
+                return res.status(401).json({ 
+                    success: false, 
+                    message: 'User not found',
+                    error: 'USER_NOT_FOUND'
+                });
+            }
+
+            // Add token and User info to request
+            req.user = user;
+            req.token = token;
+            next();
+        } catch (dbError) {
+            console.error('Database error in auth middleware:', dbError);
+            
+            if (dbError.message === 'Database query timeout') {
+                return res.status(503).json({
+                    success: false,
+                    message: 'Database operation timed out',
+                    error: 'DB_TIMEOUT'
+                });
+            }
+            
+            return res.status(500).json({ 
                 success: false, 
-                message: 'User not found',
-                error: 'USER_NOT_FOUND'
+                message: 'Database error during authentication',
+                error: 'DB_ERROR'
             });
         }
-
-        // Add token and User info to request
-        req.user = user;
-        req.token = token;
-        next();
     } catch (error) {
         console.error('Auth middleware error:', error);
         res.status(500).json({ 
