@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import crypto from 'crypto';
 
 const productSchema = new mongoose.Schema({
     product_id: {
@@ -73,28 +74,40 @@ productSchema.virtual('descriptions', {
     justOne: false
 });
 
-// Auto-increment product_id in format AGRP{YEAR}00001
-productSchema.pre('save', async function(next) {
-    if (!this.product_id) {
-        const currentYear = new Date().getFullYear();
-        const prefix = `AGRP${currentYear}`;
-        
-        const lastProduct = await this.constructor.findOne(
-            { product_id: new RegExp(`^${prefix}`) },
-            {},
-            { sort: { 'product_id': -1 } }
-        );
-
-        let sequence = 1;
-        if (lastProduct) {
-            const lastSequence = parseInt(lastProduct.product_id.slice(-5));
-            sequence = lastSequence + 1;
+productSchema.pre('save', async function (next) {
+    try {
+      if (!this.product_id) {
+        const prefix = 'AGRP';
+  
+        // Generate 8-character alphanumeric string
+        const generateRandomCode = () => {
+          return crypto.randomBytes(6)
+            .toString('base64')
+            .replace(/[^a-zA-Z0-9]/g, '') // Remove non-alphanumeric
+            .substring(0, 8)
+            .toUpperCase();
+        };
+  
+        let unique = false;
+        let newId;
+  
+        while (!unique) {
+          const randomPart = generateRandomCode();
+          newId = `${prefix}${randomPart}`;
+  
+          // Ensure uniqueness
+          const existing = await this.constructor.findOne({ product_id: newId });
+          if (!existing) unique = true;
         }
-
-        this.product_id = `${prefix}${sequence.toString().padStart(5, '0')}`;
+  
+        this.product_id = newId;
+      }
+  
+      next();
+    } catch (error) {
+      next(error);
     }
-    next();
-});
+  });
 
 // Auto-increment unified_sku in format PROD-{YEAR}-00001
 productSchema.pre('save', async function(next) {
