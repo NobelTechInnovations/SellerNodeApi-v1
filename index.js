@@ -20,6 +20,7 @@ import sellerOrderRoutes from './routes/v1/seller/order/orderRoutes.js';
 import sellerPaymentRoutes from './routes/v1/seller/accounts/paymentRoutes.js';
 import sellerReturnRoutes from './routes/v1/seller/accounts/returnRoutes.js';
 import sellerDashboardRoutes from './routes/v1/seller/accounts/dashboardRoutes.js';
+import sellerSupportRoutes from './routes/v1/seller/support/supportRoutes.js';
 const app = express();
 
 // CORS configuration
@@ -66,6 +67,7 @@ app.use('/v1/seller/category', sellerCategoryRoutes);
 app.use('/v1/seller/payment', sellerPaymentRoutes);
 app.use('/v1/seller/return', sellerReturnRoutes);
 app.use('/v1/seller/dashboard', sellerDashboardRoutes);
+app.use('/v1/seller/support', sellerSupportRoutes);
 
   // Base route
   app.get('/', (req, res) => {
