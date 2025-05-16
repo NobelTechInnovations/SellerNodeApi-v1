@@ -2,6 +2,17 @@ import Order from '../models/orders/order.js';
 import OrderProduct from '../models/orders/orderProduct.js';
 import SellerPayment from '../models/earn/sellerPayment.js';
 import mongoose from 'mongoose';
+import ExcelJS from 'exceljs';
+import crypto from 'crypto';
+import path from 'path';
+import fs from 'fs';
+import ProductDescription from '../models/products/productDescription.js';
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 /**
  * Get dashboard statistics for a seller
@@ -416,4 +427,347 @@ const getWeekNumber = (date) => {
   const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
   const pastDaysOfYear = (date - firstDayOfYear) / 86400000;
   return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+};
+
+/**
+ * Generate and download sales report in xlsx format
+ * @route GET /seller/dashboard/sales-report
+ */
+export const getSalesReport = async (req, res) => {
+  try {
+    const sellerId = req.user._id;
+    
+    // Use start date from request or default to beginning of time
+    const startDate = req.query.startDate 
+      ? new Date(req.query.startDate) 
+      : new Date(0); // Jan 1, 1970
+    
+    const endDate = new Date(); // Current date
+    
+    // Find order products associated with this seller
+    const orderProducts = await OrderProduct.find({
+      sellerId
+    }).populate('productId');
+    
+    if (!orderProducts || orderProducts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No orders found for this seller'
+      });
+    }
+    
+    // Get order IDs from the order products
+    const orderProductIds = orderProducts.map(op => op._id);
+    
+    // Find all related orders
+    const orders = await Order.find({ 
+      orderProduct: { $in: orderProductIds }
+    }).populate('customer_id');
+    
+    // Get all product descriptions for product names
+    const productIds = orderProducts
+      .filter(op => op.productId)
+      .map(op => op.productId._id);
+    
+    const productDescriptions = await ProductDescription.find({
+      product: { $in: productIds },
+      language: 'en'
+    });
+    
+    // Create a map of productId -> title for quick lookup
+    const productNameMap = {};
+    productDescriptions.forEach(desc => {
+      productNameMap[desc.product.toString()] = desc.title;
+    });
+    
+    // Create a new Excel workbook
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Sales Report');
+    
+    // Define columns
+    worksheet.columns = [
+      { header: 'Order Number', key: 'orderNumber', width: 15 },
+      { header: 'Order Date', key: 'orderDate', width: 20 },
+      { header: 'Status', key: 'status', width: 15 },
+      { header: 'Customer', key: 'customer', width: 20 },
+      { header: 'Product', key: 'product', width: 30 },
+      { header: 'SKU', key: 'sku', width: 15 },
+      { header: 'Quantity', key: 'quantity', width: 10 },
+      { header: 'Order Value (₹)', key: 'orderValue', width: 15 },
+      { header: 'Shipping (₹)', key: 'shipping', width: 15 },
+      { header: 'Total Amount (₹)', key: 'totalAmount', width: 15 }
+    ];
+    
+    // Style the header row
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'CAD9EB' }
+    };
+    
+    // Add rows
+    for (const order of orders) {
+      // Find corresponding order product
+      const orderProduct = orderProducts.find(op => 
+        op._id.toString() === order.orderProduct.toString()
+      );
+      
+      if (!orderProduct) continue;
+      
+      // Get product details
+      const product = orderProduct.productId;
+      let productName = 'Unknown Product';
+      
+      if (product) {
+        // Try to get product name from the description map first
+        productName = productNameMap[product._id.toString()] || 
+                     (product.name || 'Unknown Product');
+      }
+      
+      const sku = product ? (product.unified_sku || orderProduct.sku || 'N/A') : 'N/A';
+      
+      // Get customer details
+      const customer = order.customer_id 
+        ? `${order.customer_id.name || ''} (${order.customer_email})`
+        : order.customer_email || 'Unknown Customer';
+      
+      // Format date
+      const orderDate = order.createdAt 
+        ? new Date(order.createdAt).toLocaleString()
+        : 'Unknown Date';
+        
+      // Add the row
+      worksheet.addRow({
+        orderNumber: order.order_number,
+        orderDate: orderDate,
+        status: order.status,
+        customer: customer,
+        product: productName,
+        sku: sku,
+        quantity: orderProduct.quantity || 1,
+        orderValue: order.sub_total_amount || 0,
+        shipping: order.shipping || 0,
+        totalAmount: order.final_amount || 0
+      });
+    }
+    
+    // Add summary at the bottom
+    const totalRows = worksheet.rowCount;
+    worksheet.addRow([]); // Empty row
+    
+    // Summary row
+    worksheet.addRow({
+      orderNumber: 'TOTAL',
+      orderValue: orders.reduce((sum, order) => sum + (order.sub_total_amount || 0), 0),
+      shipping: orders.reduce((sum, order) => sum + (order.shipping || 0), 0),
+      totalAmount: orders.reduce((sum, order) => sum + (order.final_amount || 0), 0)
+    });
+
+    const summaryRow = worksheet.lastRow;
+    summaryRow.font = { bold: true };
+    summaryRow.eachCell((cell) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF8DC' }
+      };
+    });
+    
+    // Generate a unique filename
+    const filename = `sales_report_${crypto.randomBytes(4).toString('hex')}_${Date.now()}.xlsx`;
+    const filePath = path.join(uploadsDir, filename);
+    
+    // Write the file as xlsx
+    await workbook.xlsx.writeFile(filePath);
+    
+    // Send the file
+    res.download(filePath, `Agora_Sales_Report_${new Date().toISOString().split('T')[0]}.xlsx`, (err) => {
+      if (err) {
+        console.error("Error sending file:", err);
+      }
+      
+      // Delete the file after sending
+      fs.unlink(filePath, (unlinkErr) => {
+        if (unlinkErr) {
+          console.error("Error deleting temporary file:", unlinkErr);
+        }
+      });
+    });
+    
+  } catch (error) {
+    console.error('Error generating sales report:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'An error occurred while generating the sales report'
+    });
+  }
+};
+
+/**
+ * Generate and download return orders report in CSV format
+ * @route GET /seller/dashboard/returns-report
+ */
+export const getReturnsReport = async (req, res) => {
+  try {
+    const sellerId = req.user._id;
+    
+    const startDate = req.query.startDate
+      ? new Date(req.query.startDate)
+      : new Date(0); // Jan 1, 1970
+    
+    const endDate = new Date();
+    
+    // Simple approach: get all the data first
+    const orderProducts = await OrderProduct.find({ sellerId }).populate('productId');
+    
+    if (!orderProducts || orderProducts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No orders found for this seller'
+      });
+    }
+    
+    const orderProductIds = orderProducts.map(op => op._id);
+    
+    // Get return orders only
+    const returnOrders = await Order.find({ 
+      orderProduct: { $in: orderProductIds },
+      status: { $in: ['return_requested', 'return_in_process', 'returned', 'rto_return'] }
+    }).populate('customer_id');
+    
+    if (!returnOrders || returnOrders.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No return orders found for this seller'
+      });
+    }
+    
+    // Get product descriptions for better product names
+    const productIds = [];
+    orderProducts.forEach(op => {
+      if (op.productId && op.productId._id) {
+        productIds.push(op.productId._id);
+      }
+    });
+    
+    const productDescriptions = await ProductDescription.find({
+      product: { $in: productIds },
+      language: 'en'
+    });
+    
+    const productNameMap = {};
+    productDescriptions.forEach(desc => {
+      if (desc.product) {
+        productNameMap[desc.product.toString()] = desc.title;
+      }
+    });
+    
+    // Get payment data for return shipping charges
+    const sellerPayments = await SellerPayment.find({
+      seller_id: sellerId
+    });
+    
+    const orderPaymentMap = {};
+    sellerPayments.forEach(payment => {
+      if (payment.orders && Array.isArray(payment.orders)) {
+        payment.orders.forEach(orderItem => {
+          if (orderItem && orderItem.is_return && orderItem.order_id) {
+            orderPaymentMap[orderItem.order_id.toString()] = {
+              returnShippingCharge: orderItem.return_shipping_charge || 0,
+              returnDate: orderItem.return_date
+            };
+          }
+        });
+      }
+    });
+    
+    // Create CSV content directly
+    let csvContent = 'Order Number,Order Date,Return Status,Customer,Product,SKU,Quantity,Order Value (₹),Return Shipping (₹),Return Date\n';
+    
+    let totalOrderValue = 0;
+    let totalReturnShipping = 0;
+    
+    // Add each order as a row
+    returnOrders.forEach(order => {
+      const orderProduct = orderProducts.find(op => 
+        op._id.toString() === order.orderProduct.toString()
+      );
+      
+      if (!orderProduct) return;
+      
+      // Get product details
+      let productName = 'Unknown Product';
+      let sku = 'N/A';
+      
+      if (orderProduct.productId) {
+        const prodId = orderProduct.productId._id.toString();
+        productName = productNameMap[prodId] || 
+                     (orderProduct.productId.name || 'Unknown Product');
+        sku = orderProduct.productId.unified_sku || orderProduct.sku || 'N/A';
+      }
+      
+      // Escape any commas in text fields for CSV
+      productName = productName.replace(/,/g, ' ');
+      
+      // Get customer details
+      let customer = order.customer_email || 'Unknown Customer';
+      if (order.customer_id && order.customer_id.name) {
+        customer = `${order.customer_id.name} (${order.customer_email})`;
+      }
+      customer = customer.replace(/,/g, ' ');
+      
+      // Get return details
+      const paymentData = orderPaymentMap[order._id.toString()] || {};
+      const returnShippingCharge = paymentData.returnShippingCharge || 0;
+      const returnDate = paymentData.returnDate 
+        ? new Date(paymentData.returnDate).toLocaleDateString()
+        : 'Processing';
+      
+      // Add to totals
+      const orderValue = order.final_amount || 0;
+      totalOrderValue += orderValue;
+      totalReturnShipping += returnShippingCharge;
+      
+      // Format date
+      const orderDate = order.createdAt 
+        ? new Date(order.createdAt).toLocaleDateString()
+        : 'Unknown Date';
+      
+      // Add row to CSV
+      csvContent += `${order.order_number},${orderDate},${order.status},${customer},${productName},${sku},${orderProduct.quantity || 1},${orderValue},${returnShippingCharge},${returnDate}\n`;
+    });
+    
+    // Add empty row and total
+    csvContent += `\n`;
+    csvContent += `TOTAL,,,,,,,,${totalOrderValue},${totalReturnShipping}\n`;
+    
+    // Generate file
+    const filename = `returns_report_${Date.now()}.csv`;
+    const filePath = path.join(uploadsDir, filename);
+    
+    // Write the CSV file
+    fs.writeFileSync(filePath, csvContent, 'utf8');
+    
+    // Send the file
+    res.download(filePath, `Agora_Returns_Report_${new Date().toLocaleDateString()}.csv`, (err) => {
+      if (err) {
+        console.error("Error sending file:", err);
+        return res.status(500).json({
+          success: false,
+          error: 'Error downloading file'
+        });
+      }
+      
+      // Clean up the file
+      fs.unlink(filePath, () => {});
+    });
+    
+  } catch (error) {
+    console.error('Error generating returns report:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'An error occurred while generating the returns report'
+    });
+  }
 };
