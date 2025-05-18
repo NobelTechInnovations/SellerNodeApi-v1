@@ -26,6 +26,7 @@ router.post('/',
 router.get('/', auth, productController.getAllProducts);
 // Get single product
 router.get('/:product_id', auth, productController.getProduct);
+router.get('/:product_id/details', auth, productController.getProductDetails);
 // Update product
 router.put('/:product_id', 
   auth, 

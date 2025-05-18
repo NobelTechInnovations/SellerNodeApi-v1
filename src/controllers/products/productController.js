@@ -408,6 +408,74 @@ import ProductPrice from '../../models/products/productPrice.js';
     };
 
 
+    export const getProductDetails = async (req, res) => {
+        try {
+            const productId = req.params.product_id;
+
+            // Get main product data with populated category
+            const product = await Product.findOne({ product_id: productId })
+                .populate('category_id', 'name')
+                .lean();
+
+            if (!product) {
+                return sendError(res, 'Product not found', null, 404);
+            }
+
+            // Get product meta data
+            const productMeta = await ProductMeta.findOne({ product_id: productId }).lean();
+
+            // Get product price data
+            const productPrice = await ProductPrice.findOne({ product_id: productId }).lean();
+
+            // Get product images
+            const productImages = await Images.findOne({ product_id: productId }).lean();
+
+            // Get product descriptions
+            const productDescriptions = await Titles.find({ product_id: productId }).lean();
+
+            // Get variation data if product has variations
+            let variations = null;
+            let combinations = null;
+
+            if (product.type === 'variable') {
+                variations = await ProductVariation.findOne({ product_id: productId }).lean();
+                
+                if (variations) {
+                    // Get all combinations for this product
+                    combinations = await ProductCombination.find({ product_id: productId }).lean();
+                }
+            }
+
+            // Get category attributes if category exists
+            let categoryAttributes = null;
+            if (product.category_id) {
+                categoryAttributes = await CategoryAttribute.find({ 
+                    category_id: product.category_id 
+                })
+                .populate('attribute_id')
+                .lean();
+            }
+
+            // Combine all data
+            const fullProduct = {
+                ...product,
+                meta: productMeta || {},
+                price: productPrice || {},
+                images: productImages || {},
+                descriptions: productDescriptions || [],
+                variations: variations || null,
+                combinations: combinations || [],
+                category_attributes: categoryAttributes || []
+            };
+
+            return sendSuccess(res, 'Product details retrieved successfully', { product: fullProduct });
+        } catch (err) {
+            console.error('Error fetching product details:', err);
+            return sendError(res, 'Failed to retrieve product details', err.message, 400);
+        }
+    };
+
+
 
     export const updateProductDetails = async (req, res) => {
         let session;
