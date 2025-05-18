@@ -1,12 +1,18 @@
 import mongoose from 'mongoose';
 
 const productDescriptionSchema = new mongoose.Schema({
-    product: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Product',
+    // product: {
+    //     type: mongoose.Schema.Types.ObjectId,
+    //     ref: 'Product',
+    //     required: true,
+    //     index: true
+    // },
+    product_id: {
+        type: String,
         required: true,
-        index: true
+        ref: 'Product'
     },
+    
     title: {
         type: String,
         required: [true, 'Title is required'],
