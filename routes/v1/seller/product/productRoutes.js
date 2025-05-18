@@ -31,6 +31,10 @@ router.put('/:product_id',
   auth, 
   productController.updateProduct
 );
+router.post('/:product_id/details', 
+  auth, 
+  productController.updateProductDetails
+);
 // Delete product
 router.delete('/:product_id', auth, productController.deleteProduct);
 // Update product status

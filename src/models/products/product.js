@@ -16,7 +16,7 @@ const productSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['draft', 'published', 'archived','varification_pending','varification_failed'],
+        enum: ['draft', 'published', 'archived','suspended','varification_failed','in-review'],
         default: 'draft'
     },
     // created_by: {

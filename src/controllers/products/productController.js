@@ -12,6 +12,10 @@ import Category from '../../models/products/category.js';
 import CategoryAttribute from '../../models/products/categoryAttribute.js';
 import Attribute from '../../models/products/attribute.js';
 import AttributeOption from '../../models/products/attributeOption.js';
+import ProductMeta from '../../models/products/productMeta.js';
+import ProductVariation from '../../models/products/productVariation.js';
+import ProductCombination from '../../models/products/productCombination.js';
+import ProductPrice from '../../models/products/productPrice.js';
 
     // Create product with transaction
     export const createProduct = async (req, res) => {
@@ -400,5 +404,150 @@ import AttributeOption from '../../models/products/attributeOption.js';
     
         } catch (err) {
             return sendError(res, 'Failed to retrieve product', err.message, 400);
+        }
+    };
+
+
+
+    export const updateProductDetails = async (req, res) => {
+        let session;
+        console.log(req.body);
+        try {
+            // Start MongoDB session
+            session = await mongoose.startSession();
+            session.startTransaction();
+
+            const {
+                productId,
+                categoryId,
+                attributes,
+                pricing,
+                stock,
+                weight,
+                brand,
+                hasVariations,
+                variations
+            } = req.body;
+
+            // Validate required fields
+            if (!productId) {
+                return sendError(res, 'Product ID is required', null, 400);
+            }
+
+            // 1. Update the main product record
+            const product = await Product.findOneAndUpdate(
+                { product_id: productId },
+                { 
+                    category_id: categoryId || undefined,
+                    type: hasVariations ? 'variable' : 'simple'
+                },
+                { new: true, session, runValidators: true }
+            );
+
+            if (!product) {
+                await session.abortTransaction();
+                return sendError(res, 'Product not found', null, 404);
+            }
+
+            // 2. Update or create product meta
+            const metaData = {
+                weight,
+                stock: hasVariations ? 0 : stock, // Only set stock if not a variable product
+                brand_details: brand,
+                has_variations: !!hasVariations,
+                attributes: attributes || []
+            };
+
+            // Use findOneAndUpdate with upsert to handle both create and update scenarios
+            await ProductMeta.findOneAndUpdate(
+                { product_id: productId },
+                metaData,
+                { new: true, upsert: true, session, runValidators: true }
+            );
+
+            // 3. Handle pricing and variations
+            if (!hasVariations) {
+                // For simple products, store pricing in ProductPrice
+                if (pricing) {
+                    // Convert pricing to Decimal128
+                    const convertedPricing = {};
+                    if (pricing.mrp) convertedPricing.mrp = mongoose.Types.Decimal128.fromString(pricing.mrp.toString());
+                    if (pricing.selling_price) convertedPricing.selling_price = mongoose.Types.Decimal128.fromString(pricing.selling_price.toString());
+                    if (pricing.wdrp) convertedPricing.wdrp = mongoose.Types.Decimal128.fromString(pricing.wdrp.toString());
+                    
+                    await ProductPrice.findOneAndUpdate(
+                        { product_id: productId },
+                        convertedPricing,
+                        { new: true, upsert: true, session, runValidators: true }
+                    );
+                }
+                
+                // Remove any variation data if product is now simple
+                await ProductVariation.deleteOne({ product_id: productId }, { session });
+                await ProductCombination.deleteMany({ product_id: productId }, { session });
+            } else {
+                // For variable products, handle variations
+                
+                // Remove any simple product pricing
+                // await ProductPrice.deleteOne({ product_id: productId }, { session });
+                if (pricing?.mrp) {
+                    // Save only MRP in ProductPrice
+                    await ProductPrice.findOneAndUpdate(
+                      { product_id: productId },
+                      { mrp: mongoose.Types.Decimal128.fromString(pricing.mrp.toString()) },
+                      { new: true, upsert: true, session, runValidators: true }
+                    );
+                  }
+                
+                if (variations) {
+                    // Save variation attributes
+                    await ProductVariation.findOneAndUpdate(
+                        { product_id: productId },
+                        { attributes: variations.attributes || [] },
+                        { new: true, upsert: true, session, runValidators: true }
+                    );
+                    
+                    // Handle combinations
+                    if (variations.combinations && variations.combinations.length > 0) {
+                        // First delete existing combinations
+                        await ProductCombination.deleteMany({ product_id: productId }, { session });
+                        
+                        // Create combinations with Decimal128 prices
+                        const combinationDocs = variations.combinations.map(combo => ({
+                            product_id: productId,
+                            variant: combo.variant,
+                            price: mongoose.Types.Decimal128.fromString(combo.price.toString()),
+                            stock: combo.stock,
+                            imageUrl: combo.imageUrl,
+                            // Generate a unique SKU for each combination
+                            sku: `${product.unified_sku}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`
+                        }));
+                        
+                        await ProductCombination.insertMany(combinationDocs, { session });
+                    }
+                }
+            }
+            product.status = 'in-review';
+            await product.save({ session });
+
+            await session.commitTransaction();
+            
+            return sendSuccess(res, 'Product details updated successfully', {
+                product_id: productId,
+                product_type: hasVariations ? 'variable' : 'simple',
+                has_variations: hasVariations
+            });
+           
+        } catch (err) {
+            // If any error occurs, abort the transaction
+            if (session) {
+                await session.abortTransaction();
+            }
+            return sendError(res, 'Failed to update product details', err.message, 400);
+        } finally {
+            // End the session
+            if (session) {
+                await session.endSession();
+            }
         }
     };
