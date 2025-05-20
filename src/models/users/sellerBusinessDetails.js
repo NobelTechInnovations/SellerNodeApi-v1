@@ -9,6 +9,18 @@ const sellerBusinessDetailsSchema = new mongoose.Schema({
   business_identity_type: { type: String },
   currency: { type: String },
   language: { type: String },
+  location:{
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number],
+      default: [0, 0]
+    }
+  },
+  
   documents: { type: mongoose.Schema.Types.Mixed }, // Accepts any JSON-like object
   status: { type: String, default: 'in-review' }
 }, {

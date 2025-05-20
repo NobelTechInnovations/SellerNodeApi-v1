@@ -12,7 +12,7 @@ import mongoose from 'mongoose';
  */
 export const getAllSellers = async (req, res) => {
   try {
-    const { status, sortBy = 'createdAt', sortOrder = 'desc', page = 1, limit = 10 } = req.query;
+    const { status, sortBy = 'createdAt', sortOrder = 'desc', page = 1, limit = 50 } = req.query;
     
     // Build query based on filters
     const query = { deleted_at: null };
@@ -39,7 +39,7 @@ export const getAllSellers = async (req, res) => {
     const sellerIds = sellers.map(seller => seller._id);
     const businessDetails = await SellerBusinessDetails.find({
       seller_id: { $in: sellerIds }
-    }).select('seller_id business_address pincode');
+    }).select('seller_id business_address pincode location');
 
     // Create a map of business details by seller ID for easy lookup
     const businessDetailsMap = businessDetails.reduce((map, detail) => {
@@ -55,7 +55,8 @@ export const getAllSellers = async (req, res) => {
       return {
         ...sellerObj,
         business_address: businessDetail.business_address || null,
-        pincode: businessDetail.pincode || null
+        pincode: businessDetail.pincode || null,
+        location: businessDetail.location || null
       };
     });
     
