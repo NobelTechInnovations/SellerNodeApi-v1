@@ -3,51 +3,6 @@ import SellerBusinessDetails from '../models/users/sellerBusinessDetails.js';
 import User from '../models/users/user.js';
 
 /**
- * Update or create serviceable zone for a seller
- */
-export const updateServiceableZone = async (sellerId) => {
-  try {
-    // Get seller and business details
-    const [seller, businessDetails] = await Promise.all([
-      User.findById(sellerId),
-      SellerBusinessDetails.findOne({ seller_id: sellerId })
-    ]);
-
-    if (!seller || !businessDetails || !businessDetails.location) {
-      console.log('Insufficient data for serviceable zone update:', { sellerId });
-      return null;
-    }
-
-    // Update or create serviceable zone
-    const serviceableZone = await ServiceableZone.findOneAndUpdate(
-      { seller_id: sellerId },
-      {
-        $set: {
-          location: businessDetails.location,
-          seller_info: {
-            name: seller.name,
-            business_address: businessDetails.business_address,
-            pincode: businessDetails.pincode
-          },
-          is_active: seller.status === 'active',
-          updated_at: new Date()
-        }
-      },
-      { upsert: true, new: true }
-    );
-
-    // Here you would typically notify your mobile app backend about the update
-    // This could be through a message queue, webhook, or other mechanism
-    await notifyMobileAppBackend(serviceableZone);
-
-    return serviceableZone;
-  } catch (error) {
-    console.error('Error updating serviceable zone:', error);
-    throw error;
-  }
-};
-
-/**
  * Notify mobile app backend about serviceable zone updates
  * This is a placeholder function - implement according to your notification system
  */
