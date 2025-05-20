@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { sendSuccess, sendError } from '../utils/responseHandler.js';
 import SellerBusinessDetails from '../models/users/sellerBusinessDetails.js';
+import ServiceableZone from '../models/admin/ServiceableZone.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -168,7 +169,43 @@ export const sellerBankDetails = async (req, res) => {
   try {
       req.body.seller_id = req.user._id;
       const bankDetails = await SellerBankDetails.create(req.body);
-      return sendSuccess(res, 'Bank details added successfully', { bankDetails });
+
+      // Get business details
+      const businessDetails = await SellerBusinessDetails.findOne({ seller_id: req.user._id });
+      if (!businessDetails || !businessDetails.business_address || !businessDetails.pincode) {
+          return sendSuccess(res, 'Bank details added successfully, but business address not found', { bankDetails });
+      }
+
+      // Create or update serviceable zone
+      const user = await User.findById(req.user._id);
+      const serviceableZone = await ServiceableZone.findOneAndUpdate(
+          { seller_id: req.user._id },
+          {
+              $set: {
+                  seller_info: {
+                      name: user.name,
+                      business_address: businessDetails.business_address,
+                      pincode: businessDetails.pincode
+                  },
+                  location: {
+                      type: 'Point',
+                      coordinates: [ businessDetails.location.coordinates[0], 
+                      businessDetails.location.coordinates[1]
+                  ],
+                  },
+                  radius: 5000, // 5 km in meters
+                  is_active: true,
+                  status: 'active',
+                  updated_at: new Date()
+              }
+          },
+          { upsert: true, new: true }
+      );
+
+      return sendSuccess(res, 'Bank details and serviceable zone added successfully', { 
+          bankDetails,
+          serviceableZone 
+      });
   } catch (err) {
       return sendError(res, 'Failed to add bank details', err.message, 400);
   }
