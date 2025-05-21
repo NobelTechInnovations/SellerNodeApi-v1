@@ -79,3 +79,27 @@ export const getServiceableZone = async (req, res) => {
     return sendError(res, error.message || 'Something went wrong');
   }
 };
+
+
+
+// send all category with there child category to mobile app
+export const sendAllCategoryToMobileApp = async (req, res) => {
+  try {
+    const categories = await Category.find();
+    const categoryMap = {};
+    for (let cat of categories) {
+      const parent = cat.parent ? await Category.findById(cat.parent) : null;
+      categoryMap[cat._id] = {
+        categoryName: cat.name,
+        categoryId: cat._id,
+        categoryImage: cat.image_gallery,
+        parentCategoryName: parent ? parent.name : null,
+        parentCategoryId: parent ? parent._id : null
+      };
+    }
+    return sendSuccess(res, 'Category sent to mobile app successfully', categoryMap);
+  } catch (error) {
+    console.error(error);
+    return sendError(res, error.message || 'Something went wrong');
+  }
+};
