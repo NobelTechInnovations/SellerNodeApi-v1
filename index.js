@@ -23,6 +23,8 @@ import sellerReturnRoutes from './routes/v1/seller/accounts/returnRoutes.js';
 import sellerDashboardRoutes from './routes/v1/seller/accounts/dashboardRoutes.js';
 import sellerSupportRoutes from './routes/v1/seller/support/supportRoutes.js';
 import sellerAccountRoutes from './routes/v1/seller/accounts/accountRoutes.js';
+import basicApiRoutes from './routes/v1/admin/mobile/basicApiRoutes.js';
+
 const app = express();
 
 // CORS configuration
@@ -61,6 +63,7 @@ app.use('/v1/admin/auth', authRoutes);
 app.use('/v1/admin/category', categoryRoutes);
 app.use('/v1/admin/order', orderRoutes);
 app.use('/v1/admin/seller', sellerRoutes);
+app.use('/v1/admin/mobile', basicApiRoutes);
 
 // Seller routes
 app.use('/v1/seller/product', productRoutes);

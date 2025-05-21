@@ -16,7 +16,7 @@ import ProductMeta from '../../models/products/productMeta.js';
 import ProductVariation from '../../models/products/productVariation.js';
 import ProductCombination from '../../models/products/productCombination.js';
 import ProductPrice from '../../models/products/productPrice.js';
-
+import SellerCategory from '../../models/products/sellerCategory.js';
     // Create product with transaction
     export const createProduct = async (req, res) => {
         console.log(req.body);
@@ -62,6 +62,15 @@ import ProductPrice from '../../models/products/productPrice.js';
                 product_id: createdProduct.product_id,
                 seller_id: req.user._id
             };
+
+            // also save category id in seller category table
+            const sellerCategory = {
+                seller_id: req.user._id,
+                category_id: product.category_id
+            };
+
+            await SellerCategory.create([sellerCategory], { session });
+
             await ProductSellerSKU.create([sellerSku], { session });
             await session.commitTransaction();
             
