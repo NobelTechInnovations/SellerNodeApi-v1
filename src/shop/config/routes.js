@@ -2,6 +2,7 @@ import express from 'express';
 import customerAuthController from '../controllers/customerAuthController.js';
 import { requestOtpValidator, verifyOtpValidator } from '../validators/customerAuthValidator.js';
 import auth from '../middlewares/authMiddleware.js';
+import catalogRoutes from '../routes/catalogRoutes.js';
 
 const router = express.Router();
 
@@ -20,5 +21,8 @@ router.put('/auth/update-profile', auth, customerAuthController.updateProfile);
 router.post('/auth/add-bank', auth, customerAuthController.customerBankAdd);
 router.post('/auth/add-payment-method', auth, customerAuthController.customerPaymentMethodAdd);
 router.post('/auth/add-address', auth, customerAuthController.customerAddressAdd);
+
+// Catalog Routes
+router.use('/gz/catalog', catalogRoutes);
 
 export default router; 

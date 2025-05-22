@@ -1,5 +1,5 @@
 
-import { AppError } from '../utils/index.js';
+import { AppError } from './index.js';
 
 export const getCoordinates = async (address) => {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;

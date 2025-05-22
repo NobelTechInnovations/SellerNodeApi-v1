@@ -24,8 +24,8 @@ import sellerDashboardRoutes from './routes/v1/seller/accounts/dashboardRoutes.j
 import sellerSupportRoutes from './routes/v1/seller/support/supportRoutes.js';
 import sellerAccountRoutes from './routes/v1/seller/accounts/accountRoutes.js';
 import basicApiRoutes from './routes/v1/admin/mobile/basicApiRoutes.js';
-import { mobileRoutes } from './src/mobile/index.js';
-
+// import { mobileRoutes } from './src/mobile/index.js';
+import { shopRoutes } from './src/shop/index.js';
 const app = express();
 
 // CORS configuration
@@ -78,7 +78,7 @@ app.use('/v1/seller/support', sellerSupportRoutes);
 app.use('/v1/seller/accounts', sellerAccountRoutes);
 
 // Mobile App routes
-app.use('/v1/mobile', mobileRoutes);
+app.use('/v1/shop', shopRoutes);
 
 // Base route
 app.get('/', (req, res) => {
