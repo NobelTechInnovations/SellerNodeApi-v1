@@ -16,6 +16,35 @@ class CustomerAuthController extends BaseController {
         
         return this.sendResponse(res, result, 'OTP verified successfully');
     });
+
+    getAuthProfile = catchAsync(async (req,res) => {
+               
+        if (!req.customer) {
+            return this.sendError(res, 'Customer not authenticated', null, 401);
+        }
+
+        const result = await customerAuthService.getAuthProfile(req.customer.id);
+
+        return this.sendResponse(res, result, 'profile fetched');
+    })
+
+    updateProfile = catchAsync(async (req,res) => {
+        const { customer } = req;
+        const result = await customerAuthService.updateProfile(customer, req.body);
+        return this.sendResponse(res, result, 'profile updated');
+    })
+
+    customerBankAdd = catchAsync(async (req,res) => {
+        const { customer } = req;
+        const result = await customerAuthService.customerBankAdd(customer, req.body);
+        return this.sendResponse(res, result, 'bank added');
+    })
+
+    customerPaymentMethodAdd = catchAsync(async (req,res) => {
+        const { customer } = req;
+        const result = await customerAuthService.customerPaymentMethodAdd(customer, req.body);
+        return this.sendResponse(res, result, 'payment method added');
+    })
 }
 
 export default new CustomerAuthController(); 

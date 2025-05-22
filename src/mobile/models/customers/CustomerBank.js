@@ -23,11 +23,7 @@ const customerBankSchema = new mongoose.Schema({
         trim: true,
         unique: true
     },
-    branchName: {
-        type: String,
-        required: true,
-        trim: true
-    },
+
     ifscCode: { 
         type: String, 
         required: true,

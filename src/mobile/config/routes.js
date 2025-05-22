@@ -1,7 +1,7 @@
 import express from 'express';
 import customerAuthController from '../controllers/customerAuthController.js';
 import { requestOtpValidator, verifyOtpValidator } from '../validators/customerAuthValidator.js';
-import customerDbConnection from './database.js';
+import auth from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
@@ -14,5 +14,10 @@ router.use((req, res, next) => {
 // Customer Authentication Routes
 router.post('/auth/request-otp', requestOtpValidator, customerAuthController.requestOTP);
 router.post('/auth/verify-otp', verifyOtpValidator, customerAuthController.verifyOTP);
+router.get('/auth/profile', auth, customerAuthController.getAuthProfile);
+
+router.put('/auth/update-profile', auth, customerAuthController.updateProfile);
+router.post('/auth/add-bank', auth, customerAuthController.customerBankAdd);
+router.post('/auth/add-payment-method', auth, customerAuthController.customerPaymentMethodAdd);
 
 export default router; 
