@@ -19,5 +19,6 @@ router.get('/auth/profile', auth, customerAuthController.getAuthProfile);
 router.put('/auth/update-profile', auth, customerAuthController.updateProfile);
 router.post('/auth/add-bank', auth, customerAuthController.customerBankAdd);
 router.post('/auth/add-payment-method', auth, customerAuthController.customerPaymentMethodAdd);
+router.post('/auth/add-address', auth, customerAuthController.customerAddressAdd);
 
 export default router; 

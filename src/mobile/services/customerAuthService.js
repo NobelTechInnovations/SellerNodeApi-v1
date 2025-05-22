@@ -9,6 +9,7 @@ import {
 import customerDbConnection from '../config/database.js';
 import jwt from 'jsonwebtoken';
 import { AppError } from '../utils/index.js';
+import { getCoordinates } from '../utils/googleAdress.js';
 
 class CustomerAuthService extends BaseService {
     generateOTP() {
@@ -155,26 +156,145 @@ class CustomerAuthService extends BaseService {
                 throw new AppError('Database connection unavailable', 503);
             }
 
-            // Add new payment method
+            // Validate method type
+            if (!['bank', 'card', 'upi'].includes(data.methodType)) {
+                throw new AppError('Invalid method type. Must be bank, card, or upi', 400);
+            }
+
+            let details;
+            
+            // Validate and structure details based on methodType
+            switch (data.methodType) {
+                case 'upi':
+                    if (!data.upiId) {
+                        throw new AppError('UPI ID is required for UPI payment method', 400);
+                    }
+                    details = {
+                        upiId: data.upiId
+                    };
+                    break;
+
+                case 'bank':
+                    if (!data.bankName || !data.accountNumber || !data.ifscCode) {
+                        throw new AppError('Bank name, account number, and IFSC code are required for bank payment method', 400);
+                    }
+                    details = {
+                        bankName: data.bankName,
+                        accountNumber: data.accountNumber,
+                        ifscCode: data.ifscCode,
+                        branchAddress: data.branchAddress,
+                        accountHolderName: data.accountHolderName,
+                        accountType: data.accountType
+                    };
+                    break;
+
+                case 'card':
+                    if (!data.cardNumber || !data.cardHolderName || !data.expiryDate) {
+                        throw new AppError('Card number, holder name, and expiry date are required for card payment method', 400);
+                    }
+                    details = {
+                        cardNumber: data.cardNumber,
+                        cardHolderName: data.cardHolderName,
+                        expiryDate: data.expiryDate,
+                        cvv: data.cvv
+                    };
+                    break;
+            }
+
+            // Create new payment method
             const newPaymentMethod = new CustomerPaymentMethod({
                 customerId: customer._id,
-                ...data,
+                methodType: data.methodType,
+                details: details,
                 isDefault: data.isDefault || false
             });
-    
+
             await newPaymentMethod.save();
+
+            // If this is set as default, unset any other default payment methods
+            if (data.isDefault) {
+                await CustomerPaymentMethod.updateMany(
+                    { 
+                        customerId: customer._id, 
+                        _id: { $ne: newPaymentMethod._id },
+                        isDefault: true 
+                    },
+                    { $set: { isDefault: false } }
+                );
+            }
 
             // Update customer's paymentMethods array
             await Customer.findByIdAndUpdate(
                 customer._id,
-                { $addToSet: { paymentMethods: newPaymentMethod._id } },    
+                { $addToSet: { paymentMethods: newPaymentMethod._id } },
                 { new: true }
             );
+
+            // Remove sensitive data before returning
+            if (newPaymentMethod.details.cvv) {
+                delete newPaymentMethod.details.cvv;
+            }
+            if (newPaymentMethod.details.cardNumber) {
+                newPaymentMethod.details.cardNumber = `****${newPaymentMethod.details.cardNumber.slice(-4)}`;
+            }
 
             return newPaymentMethod;
         });
     }
             
+    async customerAddressAdd(customer, data) {
+        return await this.handleDBOperation(async () => {
+            if (!customerDbConnection.readyState) {
+                await customerDbConnection.connect();
+            }
+
+            const { address, isDefault = false, ...rest } = data;
+       
+            if (!address) {
+              throw new AppError('Address is required', 400);
+            }
+
+            // Get coordinates from address
+            const coordinates = await getCoordinates(address);
+
+            // Create new address instance
+            const newAddress = new CustomerAddress({
+                customerId: customer._id,
+                address,
+                isDefault,
+                ...rest,
+                location: {
+                    type: 'Point',
+                    coordinates: [coordinates.longitude, coordinates.latitude]
+                }
+            });
+       
+            // Save the new address
+            await newAddress.save();
+
+            // If this is set as default, unset any other default addresses
+            if (isDefault) {
+                await CustomerAddress.updateMany(
+                    { 
+                        customerId: customer._id, 
+                        _id: { $ne: newAddress._id },
+                        isDefault: true 
+                    },
+                    { $set: { isDefault: false } }
+                );
+            }
+
+            // Add address ID to customer's addresses list
+            await Customer.findByIdAndUpdate(
+                customer._id,
+                { $addToSet: { addresses: newAddress._id } },
+                { new: true }
+            );
+
+            return newAddress;
+        });
+    }
+      
 }
 
 export default new CustomerAuthService(); 

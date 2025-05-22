@@ -45,6 +45,12 @@ class CustomerAuthController extends BaseController {
         const result = await customerAuthService.customerPaymentMethodAdd(customer, req.body);
         return this.sendResponse(res, result, 'payment method added');
     })
+
+    customerAddressAdd = catchAsync(async (req,res) => {
+        const { customer } = req;
+        const result = await customerAuthService.customerAddressAdd(customer, req.body);
+        return this.sendResponse(res, result, 'address added');
+    })
 }
 
 export default new CustomerAuthController(); 
