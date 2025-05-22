@@ -26,6 +26,7 @@ import sellerAccountRoutes from './routes/v1/seller/accounts/accountRoutes.js';
 import basicApiRoutes from './routes/v1/admin/mobile/basicApiRoutes.js';
 // import { mobileRoutes } from './src/mobile/index.js';
 import { shopRoutes } from './src/shop/index.js';
+
 const app = express();
 
 // CORS configuration

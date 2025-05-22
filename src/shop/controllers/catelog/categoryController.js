@@ -1,5 +1,3 @@
-// this is api url for category - gz/category/listing?tree=true&main-category=
-
 import { catchAsync } from '../../utils/index.js';
 import  BaseController  from '../baseController.js';
 import categoryService from '../../services/categoryService.js';

@@ -1,4 +1,4 @@
-import mobileRoutes from './config/routes.js';
+import shopRoutes from './config/routes.js';
 import { 
     Customer, 
     CustomerOtp,
@@ -8,7 +8,7 @@ import {
 } from './models/index.js';
 
 export {
-    mobileRoutes,
+    shopRoutes,
     Customer,
     CustomerOtp,
     CustomerAddress,
