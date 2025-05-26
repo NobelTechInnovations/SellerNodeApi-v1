@@ -15,6 +15,7 @@ router.get('/:id/suspend', adminAuth, SellerController.suspendSeller);
 
 
 router.get('/:id/products', adminAuth, SellerController.getSellerProducts);
+router.post('/:id/products/:productId/status', adminAuth, SellerController.updateProductStatus);
 
 // Get seller onboarding system index and user flow
 router.get('/onboarding/index', adminAuth, SellerController.indexSellerOnboarding);

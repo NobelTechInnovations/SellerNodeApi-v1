@@ -7,4 +7,6 @@ const router = express.Router();
 // Category Routes
 router.get('/listing', categoryController.categoryListing);
 
+router.get('/:categoryId/items', categoryController.categoryItems);
+
 export default router; 
