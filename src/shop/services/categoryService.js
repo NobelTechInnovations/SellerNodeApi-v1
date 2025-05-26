@@ -128,8 +128,18 @@ class CategoryService extends BaseService {
                 };
             }
 
+            // Fetch all prices for simple products
+            const simpleProductIds = products.filter(p => p.type !== 'variable').map(p => p.product_id);
+            const simplePrices = await ProductPrice.find({ product_id: { $in: simpleProductIds } }).lean();
+            const simplePriceMap = {};
+            simplePrices.forEach(price => {
+                simplePriceMap[price.product_id] = price;
+            });
+
             const flattenedProducts = [];
             for (const product of products) {
+                // Extract title from descriptions
+                const productTitle = product.descriptions && product.descriptions[0] ? product.descriptions[0].title : product.product_id;
                 if (product.type === 'variable') {
                     // Get variations and combinations
                     const variation = await ProductVariation.findOne({ product_id: product.product_id }).lean();
@@ -144,8 +154,8 @@ class CategoryService extends BaseService {
                                 .join(', ');
                         }
                         const title = variationText
-                            ? `${product.descriptions && product.descriptions[0] ? product.descriptions[0].title : product.product_id} (${variationText})`
-                            : (product.descriptions && product.descriptions[0] ? product.descriptions[0].title : product.product_id);
+                            ? `${productTitle} (${variationText})`
+                            : productTitle;
                         flattenedProducts.push({
                             ...product,
                             // Overwrite fields with combination-specific data
@@ -158,11 +168,17 @@ class CategoryService extends BaseService {
                             parent_product_id: product.product_id,
                             type: 'variable_combination',
                             // Remove variations/combinations fields for flattened
+                            descriptions: undefined // Remove descriptions for clarity
                         });
                     }
                 } else {
-                    // Simple product, keep as-is
-                    flattenedProducts.push(product);
+                    // Simple product, attach price and title, remove descriptions
+                    flattenedProducts.push({
+                        ...product,
+                        price: simplePriceMap[product.product_id] || null,
+                        title: productTitle,
+                        descriptions: undefined // Remove descriptions for clarity
+                    });
                 }
             }
             return {
