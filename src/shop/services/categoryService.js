@@ -181,9 +181,43 @@ class CategoryService extends BaseService {
                     });
                 }
             }
+
+            // Build category tree (ancestors from root to current)
+            let categoryTree = [];
+            if (mainCategory.ancestors && mainCategory.ancestors.length > 0) {
+                // If ancestors array is present, fetch all ancestors and append current
+                categoryTree = await Category.find({ _id: { $in: [...mainCategory.ancestors, mainCategory._id] } })
+                    .sort({ createdAt: 1 }) // Optional: sort by creation or custom order
+                    .lean();
+                // Ensure order is root to current
+                const idOrder = [...mainCategory.ancestors.map(id => id.toString()), mainCategory._id.toString()];
+                categoryTree.sort((a, b) => idOrder.indexOf(a._id.toString()) - idOrder.indexOf(b._id.toString()));
+            } else {
+                // Fallback: walk up the parent chain
+                let currentCat = mainCategory;
+                while (currentCat) {
+                    categoryTree.unshift(currentCat);
+                    if (!currentCat.parent) break;
+                    currentCat = await Category.findById(currentCat.parent).lean();
+                }
+            }
+
+            // Find root parent
+            const rootCategory = categoryTree.length > 0 ? categoryTree[0] : mainCategory;
+            // Get all direct children of root
+            const rootChildren = await Category.find({ parent: rootCategory._id }).lean();
+
+            // Prepare root category with its children
+            const rootCategoryWithChildren = {
+                ...rootCategory,
+                children: rootChildren
+            };
+
             return {
                 category: mainCategory,
-                products: flattenedProducts
+                products: flattenedProducts,
+                category_tree: categoryTree,
+                root_category_with_children: rootCategoryWithChildren
             };
         });
     }
