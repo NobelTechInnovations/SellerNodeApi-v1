@@ -1,6 +1,10 @@
 import Category from '../../models/products/category.js';
 import product from '../../models/products/product.js';
+import ProductPrice from '../../models/products/productPrice.js';
 import BaseService from './baseService.js';
+import ProductVariation from '../../models/products/productVariation.js';
+import ProductCombination from '../../models/products/productCombination.js';
+
 
 class CategoryService extends BaseService {
     constructor() {
@@ -111,7 +115,11 @@ class CategoryService extends BaseService {
             const products = await product.find({
                 status: 'published',
                 category_id: { $in: allCategoryIds }
-            }).lean();
+            })
+            .populate('category_id','name slug parent')
+            .populate('images', 'thumbnail_image gallery_images')
+            .populate('descriptions', 'title description')
+            .lean();
 
             if (!products || products.length === 0) {
                 return {
@@ -120,9 +128,38 @@ class CategoryService extends BaseService {
                 };
             }
 
+            const productIds = products.map(p => p.product_id);
+            // Fetch all prices for those product_ids
+            const prices = await ProductPrice.find({ product_id: { $in: productIds } }).lean();
+            
+            // Create a price map
+            const priceMap = {};
+            prices.forEach(price => {
+                priceMap[price.product_id] = price;
+            });
+            
+            // Merge price into products
+            const productsWithPrices = products.map(product => ({
+                ...product,
+                price: priceMap[product.product_id] || null
+            }));
+
+            // if prodfuct is  "type": "variable",
+            // then get all price for that product from procut combniation table 
+            for (let product of productsWithPrices) {
+                if (product.type === 'variable') {
+                    // Get variations
+                    const variation = await ProductVariation.findOne({ product_id: product.product_id }).lean();
+                    product.variations = variation ? variation.attributes : [];
+                    // Get combinations (each combination is a variant with its own price/stock/sku)
+                    const combinations = await ProductCombination.find({ product_id: product.product_id }).lean();
+                    product.combinations = combinations;
+                }
+            }
+
             return {
                 category: mainCategory,
-                products
+                products: productsWithPrices
             };
         });
     }
