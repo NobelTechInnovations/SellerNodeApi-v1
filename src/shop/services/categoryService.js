@@ -17,7 +17,7 @@ class CategoryService extends BaseService {
         return children;
     }
 
-    async categoryListing(query) {
+    async categoryListing(query, limit) {
         return await this.handleDBOperation(async () => {
             const { tree, 'main-category': mainCategory } = query;
 
@@ -25,6 +25,7 @@ class CategoryService extends BaseService {
             if (!mainCategory) {
                 const parentCategories = await Category.find({ parent: null })
                     .sort({ createdAt: -1 })
+                    .limit(limit)
                     .lean();
 
                 // If tree parameter is true, get child categories for each parent

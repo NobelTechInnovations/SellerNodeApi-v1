@@ -8,9 +8,11 @@ class CategoryController extends BaseController {
     }
 
     categoryListing = catchAsync(async (req, res) => {
-        const result = await categoryService.categoryListing(req.query);
+        const limit = parseInt(req.query.limit) || 5;  // Default limit to 5 if not provided
+        const result = await categoryService.categoryListing(limit);
         return this.sendResponse(res, result, 'Category listing fetched');
     });
+    
 }
 
 export default new CategoryController();

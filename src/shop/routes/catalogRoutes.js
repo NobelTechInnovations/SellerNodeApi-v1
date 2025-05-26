@@ -5,6 +5,6 @@ import auth from '../middlewares/authMiddleware.js';
 const router = express.Router();
 
 // Category Routes
-router.get('/listing', auth, categoryController.categoryListing);
+router.get('/listing', categoryController.categoryListing);
 
 export default router; 
