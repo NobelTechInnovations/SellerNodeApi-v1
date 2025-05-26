@@ -215,22 +215,31 @@ export const suspendSeller = async (req, res) => {
 export const getSellerProducts = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return sendError(res, 'Invalid seller ID', {}, 400);
     }
-  
+
     const products = await ProductSellerSku.find({
       seller_id: id,
       deleted_at: null
-    }).select('name price quantity status');
-    
+    })
+    .populate({
+      path: 'product',
+      match: { deleted_at: null },
+      populate: [
+        { path: 'images' },
+        { path: 'descriptions' },
+        { path: 'category_id', select: 'name slug' }
+      ]
+    });
+
     return sendSuccess(res, 'Seller products retrieved successfully', { products });
   } catch (error) {
+    console.error('Error fetching seller products:', error);
     return sendError(res, error.message, {}, 500);
   }
 };
-
 
 /**
  * Index seller onboarding system and get user flow information
