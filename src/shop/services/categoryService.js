@@ -128,38 +128,46 @@ class CategoryService extends BaseService {
                 };
             }
 
-            const productIds = products.map(p => p.product_id);
-            // Fetch all prices for those product_ids
-            const prices = await ProductPrice.find({ product_id: { $in: productIds } }).lean();
-            
-            // Create a price map
-            const priceMap = {};
-            prices.forEach(price => {
-                priceMap[price.product_id] = price;
-            });
-            
-            // Merge price into products
-            const productsWithPrices = products.map(product => ({
-                ...product,
-                price: priceMap[product.product_id] || null
-            }));
-
-            // if prodfuct is  "type": "variable",
-            // then get all price for that product from procut combniation table 
-            for (let product of productsWithPrices) {
+            const flattenedProducts = [];
+            for (const product of products) {
                 if (product.type === 'variable') {
-                    // Get variations
+                    // Get variations and combinations
                     const variation = await ProductVariation.findOne({ product_id: product.product_id }).lean();
-                    product.variations = variation ? variation.attributes : [];
-                    // Get combinations (each combination is a variant with its own price/stock/sku)
                     const combinations = await ProductCombination.find({ product_id: product.product_id }).lean();
-                    product.combinations = combinations;
+                    // For each combination, create a separate product entry
+                    for (const combination of combinations) {
+                        // Build a readable title from combination attributes
+                        let variationText = '';
+                        if (combination.variant) {
+                            variationText = Object.values(combination.variant)
+                                .map(v => v.value)
+                                .join(', ');
+                        }
+                        const title = variationText
+                            ? `${product.descriptions && product.descriptions[0] ? product.descriptions[0].title : product.product_id} (${variationText})`
+                            : (product.descriptions && product.descriptions[0] ? product.descriptions[0].title : product.product_id);
+                        flattenedProducts.push({
+                            ...product,
+                            // Overwrite fields with combination-specific data
+                            price: combination.price,
+                            stock: combination.stock,
+                            images: [{ thumbnail_image: combination.imageUrl && combination.imageUrl[0] ? combination.imageUrl[0] : (product.images && product.images[0] ? product.images[0].thumbnail_image : null), gallery_images: combination.imageUrl || [] }],
+                            sku: combination.sku,
+                            title,
+                            selected_variation: combination.variant,
+                            parent_product_id: product.product_id,
+                            type: 'variable_combination',
+                            // Remove variations/combinations fields for flattened
+                        });
+                    }
+                } else {
+                    // Simple product, keep as-is
+                    flattenedProducts.push(product);
                 }
             }
-
             return {
                 category: mainCategory,
-                products: productsWithPrices
+                products: flattenedProducts
             };
         });
     }
