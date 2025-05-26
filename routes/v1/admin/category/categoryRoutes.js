@@ -24,10 +24,11 @@ router.post('/add',
     categoryController.createCategory
 );
 
+
 router.get('/list', adminAuth, categoryController.getCategories);
 router.get('/:category_id', adminAuth, getCategory, validate, categoryController.getCategory);
 router.get('/:parent_id/subcategories', adminAuth, categoryController.getSubCategories);
-router.put('/:category_id/update', 
+router.post('/:category_id/update', 
     adminAuth,
     (req, res, next) => {
         req.uploadType = 'category';
