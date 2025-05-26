@@ -24,6 +24,8 @@ import sellerDashboardRoutes from './routes/v1/seller/accounts/dashboardRoutes.j
 import sellerSupportRoutes from './routes/v1/seller/support/supportRoutes.js';
 import sellerAccountRoutes from './routes/v1/seller/accounts/accountRoutes.js';
 import basicApiRoutes from './routes/v1/admin/mobile/basicApiRoutes.js';
+// import { mobileRoutes } from './src/mobile/index.js';
+import { shopRoutes } from './src/shop/index.js';
 
 const app = express();
 
@@ -76,10 +78,13 @@ app.use('/v1/seller/dashboard', sellerDashboardRoutes);
 app.use('/v1/seller/support', sellerSupportRoutes);
 app.use('/v1/seller/accounts', sellerAccountRoutes);
 
-  // Base route
-  app.get('/', (req, res) => {
+// Mobile App routes
+app.use('/v1/shop', shopRoutes);
+
+// Base route
+app.get('/', (req, res) => {
     res.send('Welcome to the Dynamic API');
-  });
+});
 
 // Error handling middleware
 app.use(errorHandler);
@@ -87,5 +92,11 @@ app.use(errorHandler);
 // Start the server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server is running on:`);
+    console.log(`- Local: http://localhost:${PORT}`);
+    console.log(`- Health Check: http://localhost:${PORT}/health`);
+    console.log(`- Mobile Auth: http://localhost:${PORT}/v1/mobile/auth/request-otp`);
+    console.log('\nRegistered Routes:');
+    console.log('- Mobile Routes:', '/v1/mobile/*');
+    console.log('- Mobile Auth Routes:', '/v1/mobile/auth/*');
 });
