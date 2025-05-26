@@ -8,7 +8,7 @@ class CategoryService extends BaseService {
 
     // Recursive function to get child categories in tree format
     async getChildCategories(parentId) {
-        const children = await Category.find({ parent: parentId }).lean();
+        const children = await Category.find({ parent: parentId }).limit(limit).lean();
         
         for (let child of children) {
             child.children = await this.getChildCategories(child._id);
@@ -19,7 +19,7 @@ class CategoryService extends BaseService {
 
     async categoryListing(query) {
         return await this.handleDBOperation(async () => {
-            const { tree, 'main-category': mainCategory } = query;
+            const { tree, 'main-category': mainCategory,limit : limit = 3 } = query;
 
             // If main-category is empty, get all parent categories
             if (!mainCategory) {
@@ -46,6 +46,7 @@ class CategoryService extends BaseService {
             // Get immediate child categories
             const childCategories = await Category.find({ parent: mainCategory })
                 .sort({ createdAt: -1 })
+                .limit(limit)
                 .lean();
 
             // If tree parameter is true, get the complete hierarchy
