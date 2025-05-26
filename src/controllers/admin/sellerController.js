@@ -4,6 +4,7 @@ import SellerBusinessDetails from '../../models/users/sellerBusinessDetails.js';
 import SellerWarehouse from '../../models/users/sellerWarehouse.js';
 import { sendSuccess, sendError } from '../../utils/responseHandler.js';
 import mongoose from 'mongoose';
+import ProductSellerSku from '../../models/products/productSellerSku.js';
 
 /**
  * Get list of all sellers who are onboarded in User model
@@ -121,6 +122,121 @@ export const getSellerDetails = async (req, res) => {
       warehouses
     });
   } catch (error) {
+    return sendError(res, error.message, {}, 500);
+  }
+};
+
+/**
+ *  Approve seller
+ * @route GET /api/admin/sellers/:id/approve
+ * @access Admin
+ */
+export const approveSeller = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(id);
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return sendError(res, 'Invalid seller ID', {}, 400);
+    }
+
+    const seller = await User.findById(id);
+    if (!seller) {
+      return sendError(res, 'Seller not found', {}, 404);
+    }
+    
+    seller.status = 'active';
+    await seller.save();
+
+    return sendSuccess(res, 'Seller approved successfully', {});
+  } catch (error) {
+    return sendError(res, error.message, {}, 500);
+  }
+};
+
+/**
+ *  Reject seller
+ * @route GET /api/admin/sellers/:id/reject
+ * @access Admin
+ */
+export const rejectSeller = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return sendError(res, 'Invalid seller ID', {}, 400);
+    }
+
+    const seller = await User.findById(id);
+    if (!seller) {
+      return sendError(res, 'Seller not found', {}, 404);
+    }
+    
+    seller.status = 'rejected';
+    await seller.save();
+
+    return sendSuccess(res, 'Seller approved successfully', {});
+  } catch (error) {
+    return sendError(res, error.message, {}, 500);
+  }
+};
+
+/**
+ *  Reject seller
+ * @route GET /api/admin/sellers/:id/reject
+ * @access Admin
+ */
+export const suspendSeller = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return sendError(res, 'Invalid seller ID', {}, 400);
+    }
+
+    const seller = await User.findById(id);
+    if (!seller) {
+      return sendError(res, 'Seller not found', {}, 404);
+    }
+    
+    seller.status = 'suspended';
+    await seller.save();
+
+    return sendSuccess(res, 'Seller approved successfully', {});
+  } catch (error) {
+    return sendError(res, error.message, {}, 500);
+  }
+};
+
+/**
+ * Get seller products
+ * @route GET /api/admin/sellers/:id/products
+ * @access Admin
+ */
+export const getSellerProducts = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return sendError(res, 'Invalid seller ID', {}, 400);
+    }
+
+    const products = await ProductSellerSku.find({
+      seller_id: id,
+      deleted_at: null
+    })
+    .populate({
+      path: 'product',
+      match: { deleted_at: null },
+      populate: [
+        { path: 'images' },
+        { path: 'descriptions' },
+        { path: 'category_id', select: 'name slug' }
+      ]
+    });
+
+    return sendSuccess(res, 'Seller products retrieved successfully', { products });
+  } catch (error) {
+    console.error('Error fetching seller products:', error);
     return sendError(res, error.message, {}, 500);
   }
 };

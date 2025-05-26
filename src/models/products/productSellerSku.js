@@ -12,7 +12,11 @@ const productSellerSkuSchema = new mongoose.Schema({
         required: true,
         ref: 'Product'
     },
-    
+    product: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Product',
+        required: true
+    },
     seller_id: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',

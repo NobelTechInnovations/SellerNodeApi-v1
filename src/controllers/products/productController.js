@@ -60,7 +60,8 @@ import SellerCategory from '../../models/products/sellerCategory.js';
             // Assign product to seller
             const sellerSku = {
                 product_id: createdProduct.product_id,
-                seller_id: req.user._id
+                seller_id: req.user._id,
+                product: createdProduct._id
             };
 
             // also save category id in seller category table
