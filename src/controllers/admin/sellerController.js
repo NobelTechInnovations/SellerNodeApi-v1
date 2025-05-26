@@ -5,7 +5,7 @@ import SellerWarehouse from '../../models/users/sellerWarehouse.js';
 import { sendSuccess, sendError } from '../../utils/responseHandler.js';
 import mongoose from 'mongoose';
 import ProductSellerSku from '../../models/products/productSellerSku.js';
-
+import Product from '../../models/products/product.js';
 /**
  * Get list of all sellers who are onboarded in User model
  * @route GET /api/admin/sellers
@@ -206,6 +206,38 @@ export const suspendSeller = async (req, res) => {
     return sendError(res, error.message, {}, 500);
   }
 };
+
+
+/**
+ *  Update product status
+ * @route POST /api/admin/sellers/:id/products/status
+ * @access Admin
+ */
+export const updateProductStatus = async (req, res) => {
+  try {
+    const { id, productId } = req.params;
+    const { status } = req.body;
+
+    // console.log(id, productId, status);
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return sendError(res, 'Invalid seller ID', {}, 400);
+    }
+    
+    const product = await Product.findOne({product_id:productId});
+    if (!product) {
+      return sendError(res, 'Product not found', {}, 404);
+    }
+    
+    product.status = status;
+    await product.save();
+    return sendSuccess(res, 'Product status updated successfully', {  });
+  } catch (error) {
+    console.error('Error updating product status:', error);
+    return sendError(res, 'Failed to update product status', {}, 500);
+  }
+};
+
 
 /**
  * Get seller products
