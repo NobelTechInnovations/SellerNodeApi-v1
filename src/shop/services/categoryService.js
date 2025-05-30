@@ -176,6 +176,7 @@ class CategoryService extends BaseService {
                     flattenedProducts.push({
                         ...product,
                         price: simplePriceMap[product.product_id] || null,
+                        sku:product.unified_sku,
                         title: productTitle,
                         descriptions: undefined // Remove descriptions for clarity
                     });
