@@ -25,6 +25,19 @@ class CategoryService extends BaseService {
         return children;
     }
 
+    // Recursive function to get all child category IDs
+    async getAllChildCategoryIds(parentId) {
+        const childCategories = await Category.find({ parent: parentId }).lean();
+        let categoryIds = [parentId];
+        
+        for (const child of childCategories) {
+            const childIds = await this.getAllChildCategoryIds(child._id);
+            categoryIds = [...categoryIds, ...childIds];
+        }
+        
+        return categoryIds;
+    };
+
     async categoryListing(query, limit) {
         return await this.handleDBOperation(async () => {
             const { tree, 'main-category': mainCategory } = query;
@@ -220,6 +233,104 @@ class CategoryService extends BaseService {
                 category_tree: categoryTree,
                 root_category_with_children: rootCategoryWithChildren
             };
+        });
+    }
+
+    async getRecommendedProducts(categoryId, itemId) {
+        return await this.handleDBOperation(async () => {
+            if (!categoryId) {
+                throw new Error('Category ID is required for recommended products');
+            }
+
+            // Get all child category IDs recursively, including the current category
+            const getAllChildCategoryIds = async (parentId) => {
+                const childCategories = await Category.find({ parent: parentId }).lean();
+                let categoryIds = [parentId];
+                
+                for (const child of childCategories) {
+                    const childIds = await this.getAllChildCategoryIds(child._id);
+                    categoryIds = [...categoryIds, ...childIds];
+                }
+                
+                return categoryIds;
+            };
+
+            const allCategoryIds = await getAllChildCategoryIds(categoryId);
+
+            // Get products from the category and its children, excluding the current item
+            const products = await product.find({
+                status: 'published',
+                category_id: { $in: allCategoryIds },
+                _id: { $ne: itemId } // Exclude the current item
+            })
+            .populate('category_id','name slug parent')
+            .populate('images', 'thumbnail_image gallery_images')
+            .populate('descriptions', 'title description')
+            .lean();
+
+             if (!products || products.length === 0) {
+                return [];
+            }
+
+            // Fetch all prices for simple products
+            const simpleProductIds = products.filter(p => p.type !== 'variable').map(p => p.product_id);
+            const simplePrices = await ProductPrice.find({ product_id: { $in: simpleProductIds } }).lean();
+            const simplePriceMap = {};
+            simplePrices.forEach(price => {
+                simplePriceMap[price.product_id] = price;
+            });
+
+            const flattenedProducts = [];
+            for (const product of products) {
+                // Extract title from descriptions
+                const productTitle = product.descriptions && product.descriptions[0] ? product.descriptions[0].title : product.product_id;
+                if (product.type === 'variable') {
+                    // Get variations and combinations
+                    const variation = await ProductVariation.findOne({ product_id: product.product_id }).lean();
+                    const combinations = await ProductCombination.find({ product_id: product.product_id }).lean();
+                    // For each combination, create a separate product entry
+                    for (const combination of combinations) {
+                        // Build a readable title from combination attributes
+                        let variationText = '';
+                        if (combination.variant) {
+                            variationText = Object.values(combination.variant)
+                                .map(v => v.value)
+                                .join(', ');
+                        }
+                        const title = variationText
+                            ? `${productTitle} (${variationText})`
+                            : productTitle;
+                        flattenedProducts.push({
+                            ...product,
+                            // Overwrite fields with combination-specific data
+                            price: combination.price,
+                            stock: combination.stock,
+                            images: [{ thumbnail_image: combination.imageUrl && combination.imageUrl[0] ? combination.imageUrl[0] : (product.images && product.images[0] ? product.images[0].thumbnail_image : null), gallery_images: combination.imageUrl || [] }],
+                            sku: combination.sku,
+                            title,
+                            selected_variation: combination.variant,
+                            parent_product_id: product.product_id,
+                            type: 'variable_combination',
+                            // Remove variations/combinations fields for flattened
+                            descriptions: undefined // Remove descriptions for clarity
+                        });
+                    }
+                } else {
+                    // Simple product, attach price and title, remove descriptions
+                    flattenedProducts.push({
+                        ...product,
+                        price: simplePriceMap[product.product_id] || null,
+                        sku:product.unified_sku,
+                        title: productTitle,
+                        descriptions: undefined // Remove descriptions for clarity
+                    });
+                }
+            }
+
+            // You might want to add logic here to select a limited number of recommended products
+            // and perhaps ensure diversity (e.g., limit per subcategory).
+
+            return flattenedProducts; // Return the list of recommended products
         });
     }
 

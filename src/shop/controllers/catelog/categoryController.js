@@ -19,6 +19,16 @@ class CategoryController extends BaseController {
         return this.sendResponse(res, result, 'Category items fetched');
     });
 
+    // router.get('/:categoryId/item/:itemId', categoryController.categoryRecommendedProducts);
+    categoryRecommendedProducts = catchAsync(async (req, res) => {
+        const { categoryId, itemId } = req.params; // Get categoryId and itemId from URL params
+
+        // Call a service function to get recommended products
+        const recommendedProducts = await categoryService.getRecommendedProducts(categoryId, itemId);
+
+        // Return the recommended products
+        return this.sendResponse(res, recommendedProducts, 'Recommended products fetched');
+    })
     
 }
 

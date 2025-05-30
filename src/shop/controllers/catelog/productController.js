@@ -30,7 +30,7 @@ class ProductController extends BaseController {
         productQuery.product_id = gspin; 
 
         const product = await Product.findOne(productQuery)
-            .populate('category_id')
+            .populate('category_id' )
             .lean();
 
         if (!product) {
@@ -58,7 +58,7 @@ class ProductController extends BaseController {
         // Get seller business details
         const sellerBusiness = await SellerBusinessDetails.findOne({
             seller_id: seller?._id
-        }).lean();
+        }).select('seller_id business_name business_address pincode location').lean();
 
         // Get seller warehouse details
         const sellerWarehouses = await SellerWarehouse.find({
@@ -152,49 +152,64 @@ class ProductController extends BaseController {
    
     productListingImages = catchAsync(async (req, res) => {
         const { gspin } = req.params;  // gspin is product_id from URL
-        const { pid, type, p_sku } = req.query;  // query parameters
+        const { pid, type, p_sku } = req.query;  // query parameters - pid is not used for product lookup
 
         let productQuery = {};
-        
-      
-        productQuery.product_id = gspin;  // Using product_id from URL param
-      
+
+        // Always use gspin (product_id) to find the product as it's mandatory
+        productQuery.product_id = gspin;
 
         const product = await Product.findOne(productQuery);
         if (!product) {
             return this.sendError(res, 'Product not found', 404);
         }
 
-        let images = [];
-
-        // Get base product images
-        const productImages = await ProductImage.find({ product_id: product.product_id })
-            .select('url alt_text is_primary')
+        // Get base product images (thumbnail and gallery)
+        const productImagesData = await ProductImage.findOne({ product_id: product.product_id })
+            .select('thumbnail_image gallery_images')
             .lean();
 
-        if (type === 'simple') {
-            images = productImages;
-        } else if (type === 'variable_combination' && p_sku) {
-            // For variable products, get combination-specific images
+        let images = [];
+        let primaryImageUrl = null;
+        let galleryImageUrls = [];
+
+        // Always include base product gallery images if they exist
+        if (productImagesData?.gallery_images && Array.isArray(productImagesData.gallery_images)) {
+            galleryImageUrls = galleryImageUrls.concat(productImagesData.gallery_images);
+        }
+
+        if (type === 'variable_combination' && p_sku) {
+            // For variable products with specific SKU, try to get combination images
+            // Perform case-insensitive comparison for SKU
             const combination = await ProductCombination.findOne({
                 product_id: product.product_id,
-                sku: p_sku
+                sku: p_sku.toLowerCase() // Use lower case for search in DB
             }).lean();
 
-            if (combination && combination.imageUrl && combination.imageUrl.length > 0) {
-                // If combination has specific images, use those
-                images = combination.imageUrl.map(url => ({
-                    url,
-                    is_primary: false
-                }));
+            if (combination && combination.imageUrl && Array.isArray(combination.imageUrl) && combination.imageUrl.length > 0) {
+                // If combination has specific images:
+                // First combination image is primary
+                primaryImageUrl = combination.imageUrl[0];
+                // Rest of combination images are part of gallery
+                galleryImageUrls = combination.imageUrl.slice(1).concat(galleryImageUrls);
             } else {
-                // Fallback to product images if no combination-specific images
-                images = productImages;
+                // If no combination images, use product thumbnail as primary
+                primaryImageUrl = productImagesData?.thumbnail_image;
             }
         } else {
-            // If no specific combination requested, return all product images
-            images = productImages;
+            // For simple products or variable without specific SKU, use product thumbnail as primary
+            primaryImageUrl = productImagesData?.thumbnail_image;
         }
+
+        // Construct the final images array
+        if (primaryImageUrl) {
+            images.push({ url: primaryImageUrl, is_primary: true });
+        }
+
+        images = images.concat(galleryImageUrls.map(url => ({
+            url,
+            is_primary: false
+        })));
 
         return this.sendResponse(res, images);
     });
