@@ -154,6 +154,8 @@ class ProductController extends BaseController {
         const { gspin } = req.params;  // gspin is product_id from URL
         const { pid, type, p_sku } = req.query;  // query parameters - pid is not used for product lookup
 
+        console.log('productListingImages called with:', { gspin, pid, type, p_sku });
+
         let productQuery = {};
 
         // Always use gspin (product_id) to find the product as it's mandatory
@@ -161,6 +163,7 @@ class ProductController extends BaseController {
 
         const product = await Product.findOne(productQuery);
         if (!product) {
+            console.log('Product not found for gspin:', gspin);
             return this.sendError(res, 'Product not found', 404);
         }
 
@@ -178,7 +181,10 @@ class ProductController extends BaseController {
             galleryImageUrls = galleryImageUrls.concat(productImagesData.gallery_images);
         }
 
+        console.log('product type:', type);
+
         if (type === 'variable_combination' && p_sku) {
+            console.log('Handling variable combination with p_sku:', p_sku);
             // For variable products with specific SKU, try to get combination images
             // Perform case-insensitive comparison for SKU
             const combination = await ProductCombination.findOne({
@@ -186,17 +192,22 @@ class ProductController extends BaseController {
                 sku: p_sku.toLowerCase() // Use lower case for search in DB
             }).lean();
 
+            console.log('Found combination:', combination);
+
             if (combination && combination.imageUrl && Array.isArray(combination.imageUrl) && combination.imageUrl.length > 0) {
+                console.log('Combination has images. Using combination images.');
                 // If combination has specific images:
-                // First combination image is primary
+                // First combination image is primary (thumbnail)
                 primaryImageUrl = combination.imageUrl[0];
-                // Rest of combination images are part of gallery
+                // Rest of combination images + product gallery images are part of gallery
                 galleryImageUrls = combination.imageUrl.slice(1).concat(galleryImageUrls);
             } else {
+                console.log('Combination found but no images, or combination not found. Using product thumbnail.');
                 // If no combination images, use product thumbnail as primary
                 primaryImageUrl = productImagesData?.thumbnail_image;
             }
         } else {
+            console.log('Handling simple product or variable without p_sku. Using product thumbnail.');
             // For simple products or variable without specific SKU, use product thumbnail as primary
             primaryImageUrl = productImagesData?.thumbnail_image;
         }
@@ -210,6 +221,8 @@ class ProductController extends BaseController {
             url,
             is_primary: false
         })));
+
+        console.log('Final images response:', images);
 
         return this.sendResponse(res, images);
     });
