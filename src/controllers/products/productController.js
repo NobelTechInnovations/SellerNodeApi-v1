@@ -17,6 +17,7 @@ import ProductVariation from '../../models/products/productVariation.js';
 import ProductCombination from '../../models/products/productCombination.js';
 import ProductPrice from '../../models/products/productPrice.js';
 import SellerCategory from '../../models/products/sellerCategory.js';
+import { indexProductToAlgolia, removeProductFromAlgolia } from '../../utils/algoliaService.js';
     // Create product with transaction
     export const createProduct = async (req, res) => {
         console.log(req.body);
@@ -74,6 +75,11 @@ import SellerCategory from '../../models/products/sellerCategory.js';
 
             await ProductSellerSKU.create([sellerSku], { session });
             await session.commitTransaction();
+            
+            // Index the new product in Algolia if it's published
+            if (createdProduct.status === 'published') {
+                await indexProductToAlgolia(createdProduct);
+            }
             
             return sendSuccess(res, 'Product created successfully', { product: {
                 _id: createdProduct._id,
@@ -255,6 +261,9 @@ import SellerCategory from '../../models/products/sellerCategory.js';
                 return sendError(res, 'Product not found', {}, 404);
             }
 
+            // Remove from Algolia
+            await removeProductFromAlgolia(product.product_id);
+
             await session.commitTransaction();
             return sendSuccess(res, 'Product deleted successfully');
         } catch (err) {
@@ -289,7 +298,14 @@ import SellerCategory from '../../models/products/sellerCategory.js';
                 return sendError(res, 'Product not found', {}, 404);
             }
 
-            return sendSuccess(res, 'Product status updated successfully', { product });
+            // Update Algolia index based on new status
+            if (status === 'published') {
+                await indexProductToAlgolia(product);
+            } else {
+                await removeProductFromAlgolia(product.product_id);
+            }
+
+            return sendSuccess(res, 'Product status updated successfully');
         } catch (err) {
             return sendError(res, 'Failed to update product status', err.message, 400);
         }
@@ -609,6 +625,14 @@ import SellerCategory from '../../models/products/sellerCategory.js';
             await product.save({ session });
 
             await session.commitTransaction();
+            
+            // Update Algolia index if product is published
+            if (product.status === 'published') {
+                await indexProductToAlgolia(product);
+            } else {
+                // Remove from Algolia if not published
+                await removeProductFromAlgolia(product.product_id);
+            }
             
             return sendSuccess(res, 'Product details updated successfully', {
                 product_id: productId,

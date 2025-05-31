@@ -28,6 +28,7 @@ async function syncProductsToAlgolia() {
       deleted_at: null 
     });
     
+    
     const productsToIndex = [];
 
     for (const product of products) {
