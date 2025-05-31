@@ -3,6 +3,7 @@ import ProductDescription from '../models/products/productDescription.js';
 import Category from '../models/products/category.js';
 import ProductCombination from '../models/products/productCombination.js';
 import ProductPrice from '../models/products/productPrice.js';
+import ProductImage from '../models/products/productImage.js';
 
 const client = algoliasearch(process.env.ALGOLIA_APP_ID, process.env.ALGOLIA_API_KEY);
 const index = client.initIndex('products');
@@ -31,6 +32,9 @@ export const indexProductToAlgolia = async (product) => {
       }
     }
 
+    // Get product image
+    const productImage = await ProductImage.findOne({ product_id: product.product_id });
+
     if (product.type === 'variable') {
       // For variable products, get all combinations
       const combinations = await ProductCombination.find({ 
@@ -53,7 +57,7 @@ export const indexProductToAlgolia = async (product) => {
           price: combination.price,
           category: categoryName,
           brand: product.brand || '',
-          type: product.type,
+          type: 'variable_combination',
           condition: product.condition || 'new',
           status: product.status,
           is_variant: true,
@@ -80,7 +84,8 @@ export const indexProductToAlgolia = async (product) => {
         type: product.type,
         condition: product.condition || 'new',
         status: product.status,
-        is_variant: false
+        is_variant: false,
+        image_url: productImage?.thumbnail_image || null
       });
     }
 

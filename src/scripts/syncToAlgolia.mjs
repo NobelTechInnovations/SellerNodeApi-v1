@@ -6,6 +6,7 @@ import ProductDescription from '../models/products/productDescription.js';
 import ProductPrice from '../models/products/productPrice.js';
 import Category from '../models/products/category.js';
 import ProductCombination from '../models/products/productCombination.js';
+import ProductImage from '../models/products/productImage.js';
 
 dotenv.config();
 
@@ -27,7 +28,7 @@ async function syncProductsToAlgolia() {
       status: 'published',
       deleted_at: null 
     });
-    
+
     
     const productsToIndex = [];
 
@@ -37,6 +38,9 @@ async function syncProductsToAlgolia() {
         product_id: product.product_id,
         language: 'en'
       });
+
+      // Get product image
+      const productImage = await ProductImage.findOne({ product_id: product.product_id });
 
       // Get category details
       let categoryName = '';
@@ -61,7 +65,7 @@ async function syncProductsToAlgolia() {
           }));
 
           productsToIndex.push({
-            objectID: `${product.product_id}-${combination.sku}`,
+            objectID: product._id,
             product_id: product.product_id,
             name: description?.title || '',
             sku: combination.sku,
@@ -69,7 +73,7 @@ async function syncProductsToAlgolia() {
             price: combination.price,
             category: categoryName,
             brand: product.brand || '',
-            type: product.type,
+            type: 'variable_combination',
             condition: product.condition || 'new',
             status: product.status,
             is_variant: true,
@@ -85,7 +89,7 @@ async function syncProductsToAlgolia() {
         });
 
         productsToIndex.push({
-          objectID: product.product_id,
+          objectID: product._id,
           product_id: product.product_id,
           name: description?.title || '',
           sku: product.unified_sku,
@@ -96,7 +100,8 @@ async function syncProductsToAlgolia() {
           type: product.type,
           condition: product.condition || 'new',
           status: product.status,
-          is_variant: false
+          is_variant: false,
+          image_url: productImage?.thumbnail_image || null
         });
       }
     }
