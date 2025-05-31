@@ -11,8 +11,10 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@algolia/client-search": "^5.25.0",
     "@aws-sdk/client-s3": "^3.804.0",
     "@seller-panel/shop": "file:src/shop",
+    "algoliasearch": "^5.25.0",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^3.0.2",
     "cookie-parser": "^1.4.7",
