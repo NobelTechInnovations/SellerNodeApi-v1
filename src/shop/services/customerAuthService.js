@@ -68,9 +68,18 @@ class CustomerAuthService extends BaseService {
                 { expiresIn: '30d' }
             );
 
+            // Select only required fields
+            const customerData = {
+                phone: customer.phone,
+                accountLevel: customer.accountLevel,
+                accountStatus: customer.accountStatus,
+                ...(customer.email && { email: customer.email }),
+                ...(customer.name && { name: customer.name })
+            };
+
             return {
                 token,
-                customer
+                customer: customerData
             };
         });
     }
