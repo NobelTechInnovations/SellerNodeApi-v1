@@ -76,16 +76,18 @@ class CustomerAuthService extends BaseService {
     }
 
     async getAuthProfile(customerId) {
-        return Customer.findById(customerId)
-          .populate('addresses')
-          .populate('bankDetails')
-          .populate('paymentMethods')
-          .then(customer => {
+        return await this.handleDBOperation(async () => {
+            const customer = await Customer.findById(customerId)
+                .populate('addresses')
+                .populate('bankDetails')
+                .populate('paymentMethods');
+
             if (!customer) {
-              return { success: false, message: 'User not found' };
+                throw new AppError('User not found', 404);
             }
-            return { success: true, data: customer };
-          });
+
+            return customer;
+        });
     }
 
     async updateProfile(customer, data) {

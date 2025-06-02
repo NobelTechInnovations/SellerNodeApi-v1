@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import Customer from '../models/customers/Customer.js';
-import mongoose from 'mongoose';
+import customerDbConnection from '../config/database.js';
 
 const auth = async (req, res, next) => {
     try {
@@ -73,9 +73,9 @@ const auth = async (req, res, next) => {
         }
 
         try {
-            // Check MongoDB connection state
-            if (mongoose.connection.readyState !== 1) {
-                console.error('MongoDB not connected when trying to authenticate customer');
+            // Check customer database connection state
+            if (customerDbConnection.readyState !== 1) {
+                console.error('Customer database not connected when trying to authenticate customer');
                 return res.status(503).json({
                     success: false,
                     message: 'Database connection unavailable',
