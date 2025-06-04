@@ -5,6 +5,13 @@ import Product from '../../models/products/product.js';
 import ProductMeta from '../../models/products/productMeta.js';
 import ProductCombination from '../../models/products/productCombination.js';
 import ProductPrice from '../../models/products/productPrice.js';
+import ProductDescription from '../../models/products/productDescription.js';
+import User from '../../models/users/user.js';
+import SellerBusinessDetails from '../../models/users/sellerBusinessDetails.js';
+import SellerWarehouse from '../../models/users/sellerWarehouse.js';
+import ProductImage from '../../models/products/productImage.js';
+import ProductSellerSku from '../../models/products/productSellerSku.js';
+
 
 class CartService extends BaseService {
     async getOrCreateCart(customer) {
@@ -343,19 +350,135 @@ class CartService extends BaseService {
         };
     }
 
-
-    async getCartFullDetails(cartId){
+    async getCartFullDetails(cartId) {
         const cart = await Cart.findById(cartId);
         if (!cart) {
             throw new AppError('Cart not found', 404);
         }
-        const cartItems = await CartItem.find({ cartId })
-        .sort({ createdAt: -1 });
-        return {
-            cart,
-            items: cartItems
-        };
 
+        const cartItems = await CartItem.find({ cartId })
+            .sort({ createdAt: -1 });
+
+        // Enhance cart items with full product details
+        const enhancedItems = await Promise.all(cartItems.map(async (item) => {
+            // Get base product details
+            const product = await Product.findOne({ product_id: item.productId })
+                .populate('category_id', 'name')
+                .lean();
+
+            if (!product) {
+                return item;
+            }
+
+            // Get product description
+            const description = await ProductDescription.findOne({ 
+                product_id: item.productId 
+            }).lean();
+
+            // Get product meta details
+            const metaDetails = await ProductMeta.findOne({ 
+                product_id: item.productId 
+            }).lean();
+
+            // Get product seller SKU details
+            const productSellerSku = await ProductSellerSku.findOne({
+                product_id: item.productId
+            }).lean();
+
+            // Get seller details
+            const seller = await User.findById(productSellerSku?.seller_id).lean();
+
+            // Get seller business details
+            const sellerBusiness = await SellerBusinessDetails.findOne({
+                seller_id: seller?._id
+            }).select('business_name business_address pincode location').lean();
+
+            // Base product details
+            let productDetails = {
+                gspin: product.product_id,
+                title: description?.title || '',
+                description: description?.description || '',
+                meta_details: description?.meta_details || [],
+                category: product.category_id?.name || '',
+                brand: metaDetails?.brand_details?.name || '',
+                type: item.type,
+                seller: {
+                    business_name: sellerBusiness?.business_name || '',
+                    business_address: sellerBusiness?.business_address || '',
+                    pincode: sellerBusiness?.pincode || '',
+                    location: sellerBusiness?.location || '',
+                }
+            };
+
+            // Handle pricing based on product type
+            if (item.type === 'simple') {
+                const price = await ProductPrice.findOne({ product_id: item.productId });
+                if (price) {
+                    productDetails.price = price.selling_price;
+                    productDetails.sku = product.unified_sku;
+                }
+            } else if (item.type === 'variable') {
+                // Get combination details for variable product
+                const combination = await ProductCombination.findOne({
+                    product_id: item.productId,
+                    sku: item.sku
+                }).lean();
+
+                if (combination) {
+                    // Build variation text for title
+                    let variationText = '';
+                    if (combination.variant) {
+                        variationText = Object.values(combination.variant)
+                            .map(v => v.value)
+                            .join(', ');
+                    }
+
+                    productDetails.selected_combination = {
+                        sku: combination.sku,
+                        variant: combination.variant,
+                        price: combination.price
+                    };
+
+                    productDetails.price = combination.price;
+                    productDetails.sku = combination.sku;
+
+                    // Update title with variation text
+                    productDetails.title = variationText
+                        ? `${description?.title || ''} (${variationText})`
+                        : description?.title;
+                }
+            }
+
+            // Get product images
+            const productImages = await ProductImage.findOne({ 
+                product_id: item.productId 
+            }).select('thumbnail_image').lean();
+
+            // Add only thumbnail image
+            productDetails.thumbnail = productImages?.thumbnail_image || '';
+
+            return {
+                quantity: item.quantity,
+                price: item.price,
+                total: item.total,
+                type: item.type,
+                sku: item.sku,
+                additional: item.additional || [],
+                productDetails
+            };
+        }));
+
+        return {
+            cart: {
+                totalItems: cart.totalItems,
+                totalQuantity: cart.totalQuantity,
+                subtotal: cart.subtotal,
+                tax: cart.tax,
+                discount: cart.discount,
+                finalAmount: cart.finalAmount
+            },
+            items: enhancedItems
+        };
     }
 
     async checkoutInfo(customer){
