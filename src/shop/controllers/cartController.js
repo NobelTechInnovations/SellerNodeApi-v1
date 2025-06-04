@@ -46,6 +46,15 @@ class CartController extends BaseController {
         const result = await cartService.clearCart(req.customer);
         return this.sendResponse(res, result, 'Cart cleared successfully');
     });
+
+    checkoutInfo = catchAsync(async (req,res) => {
+        const cart = await cartService.checkoutInfo(req.customer);
+        if(cart){
+            const cartDetails = await cartService.getCartFullDetails(cart._id);
+            return this.sendResponse(res, cartDetails, 'Cart cleared successfully');
+        }
+        return this.sendResponse(res, {}, 'Cart is empty');
+    })
 }
 
 export default new CartController(); 

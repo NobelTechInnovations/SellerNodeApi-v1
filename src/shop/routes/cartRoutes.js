@@ -28,4 +28,8 @@ router.post('/items/:cartItemId/move', cartController.moveToCart);
 // Clear cart
 router.delete('/', cartController.clearCart);
 
+
+router.get('/checkout', cartController.checkoutInfo);
+
+
 export default router; 

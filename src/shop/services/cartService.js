@@ -314,6 +314,20 @@ class CartService extends BaseService {
         await Cart.findByIdAndUpdate(cartId, totals);
     }
 
+    async clearCart(customer) {
+        return await this.handleDBOperation(async () => {
+            const cart = await this.getOrCreateCart(customer);
+
+            // Remove all cart items
+            await CartItem.deleteMany({ cartId: cart._id });
+
+            // Reset cart totals
+            await this.collectTotals(cart._id);
+
+            return await this.getCartDetails(cart._id);
+        });
+    }
+
     async getCartDetails(cartId) {
         const cart = await Cart.findById(cartId);
         if (!cart) {
@@ -329,19 +343,31 @@ class CartService extends BaseService {
         };
     }
 
-    async clearCart(customer) {
+
+    async getCartFullDetails(cartId){
+        const cart = await Cart.findById(cartId);
+        if (!cart) {
+            throw new AppError('Cart not found', 404);
+        }
+        const cartItems = await CartItem.find({ cartId })
+        .sort({ createdAt: -1 });
+        return {
+            cart,
+            items: cartItems
+        };
+
+    }
+
+    async checkoutInfo(customer){
         return await this.handleDBOperation(async () => {
-            const cart = await this.getOrCreateCart(customer);
-
-            // Remove all cart items
-            await CartItem.deleteMany({ cartId: cart._id });
-
-            // Reset cart totals
-            await this.collectTotals(cart._id);
-
-            return await this.getCartDetails(cart._id);
+            let cart = await Cart.findOne({
+                customerId: customer._id,
+                isActive: true
+            });
+            return cart || null;
         });
     }
+
 }
 
 export default new CartService(); 
