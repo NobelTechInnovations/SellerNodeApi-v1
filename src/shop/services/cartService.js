@@ -70,16 +70,14 @@ class CartService extends BaseService {
                     // Get variation text for title
                     let variationParts = [];
                     if (combination.variant && typeof combination.variant === 'object') {
-                        // Iterate over the object keys (attribute names)
-                         for (const attributeName in combination.variant) {
+                        for (const attributeName in combination.variant) {
                             if (Object.hasOwnProperty.call(combination.variant, attributeName)) {
                                 const variantDetail = combination.variant[attributeName];
-                                // Check if the variant detail object has a value and add it to parts
                                 if (variantDetail && variantDetail.value) {
                                     variationParts.push(variantDetail.value);
                                 }
                             }
-                         }
+                        }
                     }
                     
                     const variationText = variationParts.join(', ');
@@ -88,8 +86,7 @@ class CartService extends BaseService {
                     productDetails = {
                         ...productDetails,
                         name: variationText ? `${product.descriptions?.[0]?.title} (${variationText})` : product.descriptions?.[0]?.title,
-                         // Use combination images if available and not empty, otherwise use product images
-                        images: (combination.imageUrl && Array.isArray(combination.imageUrl) && combination.imageUrl.length > 0) ? combination.imageUrl[0] : (product.images?.[0]?.gallery_images || []),
+                        images: (combination.imageUrl && Array.isArray(combination.imageUrl) && combination.imageUrl.length > 0) ? combination.imageUrl : (product.images?.[0]?.gallery_images || []),
                         price: combination.price,
                         sku: combination.sku,
                         selected_combination: {
@@ -119,21 +116,10 @@ class CartService extends BaseService {
     async addToCart(customer, productData) {
         return await this.handleDBOperation(async () => {
             // Find or create active cart for customer
-            let cart = await Cart.findOne({
-                customerId: customer._id,
-                isActive: true
-            });
-
-            if (!cart) {
-                cart = await Cart.create({
-                    customerId: customer._id,
-                    phone: customer.phone
-                });
-            }
+            let cart = await this.getOrCreateCart(customer);
 
             // Fetch product details from product database, passing the selected SKU
             const productDetails = await this.fetchProductDetails(productData.productId, productData.sku);
-
             // Check if product already exists in cart with the same SKU
             const existingItem = await CartItem.findOne({
                 cartId: cart._id,
@@ -146,8 +132,17 @@ class CartService extends BaseService {
                 // Update existing item quantity
                 existingItem.quantity += productData.quantity;
                 existingItem.total = existingItem.basePrice * existingItem.quantity;
+
                 await existingItem.save();
             } else {
+                const variantMap = productDetails?.selected_combination?.variant;
+                const additional = Array.from(variantMap.entries()).map(([key, value]) => {
+                    const v = value._doc || value;
+                    return {
+                      [key]: v.value,
+                    };
+                  });
+
                 // Create new cart item
                 await CartItem.create({
                     cartId: cart._id,
@@ -158,12 +153,12 @@ class CartService extends BaseService {
                     price: productDetails.price,
                     basePrice: productDetails.price,
                     total: productDetails.price * productData.quantity,
-                    additional: productData.additional || {},
+                    additional, // Assign determined additional data
                     productDetails: productDetails
                 });
             }
 
-            // Update cart totals using the new function
+            // Update cart totals
             await this.collectTotals(cart._id);
 
             return await this.getCartDetails(cart._id);
@@ -205,7 +200,7 @@ class CartService extends BaseService {
             }
             await cartItem.save();
 
-            // Update cart totals using the new function
+            // Update cart totals
             await this.collectTotals(cart._id);
 
             return await this.getCartDetails(cart._id);
@@ -225,7 +220,7 @@ class CartService extends BaseService {
                 throw new AppError('Cart item not found', 404);
             }
 
-            // Update cart totals using the new function
+            // Update cart totals
             await this.collectTotals(cart._id);
 
             return await this.getCartDetails(cart._id);
@@ -248,7 +243,7 @@ class CartService extends BaseService {
             cartItem.saveForLater = true;
             await cartItem.save();
 
-            // Update cart totals using the new function
+            // Update cart totals
             await this.collectTotals(cart._id);
 
             return await this.getCartDetails(cart._id);
@@ -284,7 +279,7 @@ class CartService extends BaseService {
             cartItem.saveForLater = false;
             await cartItem.save();
 
-            // Update cart totals using the new function
+            // Update cart totals
             await this.collectTotals(cart._id);
 
             return await this.getCartDetails(cart._id);
@@ -341,7 +336,7 @@ class CartService extends BaseService {
             // Remove all cart items
             await CartItem.deleteMany({ cartId: cart._id });
 
-            // Reset cart totals using the new function
+            // Reset cart totals
             await this.collectTotals(cart._id);
 
             return await this.getCartDetails(cart._id);
