@@ -72,7 +72,7 @@ const checkConnectionHealth = async () => {
             console.log('Attempting to reconnect...');
             await customerDbConnection.connect();
         } else {
-            console.log('Connection is healthy. State:', customerDbConnection.readyState);
+            // console.log('Connection is healthy. State:', customerDbConnection.readyState);
         }
     } catch (error) {
         console.error('Health check failed:', error);
