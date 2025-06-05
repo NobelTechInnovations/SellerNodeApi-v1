@@ -51,7 +51,7 @@ class CartController extends BaseController {
         const cart = await cartService.checkoutInfo(req.customer);
         if(cart){
             const cartDetails = await cartService.getCartFullDetails(cart._id);
-            return this.sendResponse(res, cartDetails, 'Cart cleared successfully');
+            return this.sendResponse(res, cartDetails, 'Cart successfully fetched');
         }
         return this.sendResponse(res, {}, 'Cart is empty');
     })
