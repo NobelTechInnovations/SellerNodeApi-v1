@@ -1,5 +1,6 @@
 import express from 'express';
 import cartController from '../controllers/cartController.js';
+import orderController from '../controllers/orderController.js';
 import auth from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
@@ -30,6 +31,10 @@ router.delete('/', cartController.clearCart);
 
 
 router.get('/checkout', cartController.checkoutInfo);
+router.get('/checkout/addressinfo', cartController.checkoutAddressInfo);
+
+
+router.post('/checkout/placeorder', orderController.placeOrder);
 
 
 export default router; 

@@ -55,6 +55,11 @@ class CartController extends BaseController {
         }
         return this.sendResponse(res, {}, 'Cart is empty');
     })
+
+    checkoutAddressInfo = catchAsync(async (req,res) => {
+        const customer = await cartService.checkoutAddressInfo(req.customer);
+        return this.sendResponse(res, customer, 'Address info successfully fetched');
+    })
 }
 
 export default new CartController(); 

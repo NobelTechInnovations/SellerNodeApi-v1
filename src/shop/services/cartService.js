@@ -11,6 +11,7 @@ import SellerBusinessDetails from '../../models/users/sellerBusinessDetails.js';
 import SellerWarehouse from '../../models/users/sellerWarehouse.js';
 import ProductImage from '../../models/products/productImage.js';
 import ProductSellerSku from '../../models/products/productSellerSku.js';
+import { Customer } from '../models/index.js';
 
 
 class CartService extends BaseService {
@@ -356,8 +357,10 @@ class CartService extends BaseService {
             throw new AppError('Cart not found', 404);
         }
 
-        const cartItems = await CartItem.find({ cartId })
-            .sort({ createdAt: -1 });
+        const cartItems = await CartItem.find({ 
+            cartId,
+            saveForLater: false // Only get items that are not saved for later
+        }).sort({ createdAt: -1 });
 
         // Enhance cart items with full product details
         const enhancedItems = await Promise.all(cartItems.map(async (item) => {
@@ -490,6 +493,21 @@ class CartService extends BaseService {
             return cart || null;
         });
     }
+
+    async checkoutAddressInfo(customer) {
+        return await this.handleDBOperation(async () => {
+            const customerData = await Customer.findById(customer._id)
+                .populate('addresses')
+                .populate('paymentMethods');
+    
+            if (!customerData) {
+                throw new AppError('Address not found', 404);
+            }
+    
+            return customerData;
+        });
+    }
+    
 
 }
 
