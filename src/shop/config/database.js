@@ -1,19 +1,5 @@
 import mongoose from 'mongoose';
 import 'dotenv/config';
-
-const options = {
-    connectTimeoutMS: 30000,
-    socketTimeoutMS: 45000,
-    serverSelectionTimeoutMS: 30000,
-    maxPoolSize: 10,
-    minPoolSize: 1,
-    retryWrites: true,
-    retryReads: true,
-    autoIndex: true,
-    keepAlive: true,
-    keepAliveInitialDelay: 300000
-};
-
 // Create a separate connection for customer database
 const customerDbURI = process.env.CUSTOMER_DB_URI;
 
@@ -25,7 +11,7 @@ if (!customerDbURI) {
 console.log('Attempting to connect to customer database...');
 console.log('Connection URI:', customerDbURI.replace(/\/\/([^:]+):([^@]+)@/, '//****:****@')); // Hide credentials in logs
 
-const customerDbConnection = mongoose.createConnection(customerDbURI, options);
+const customerDbConnection = mongoose.createConnection(customerDbURI);
 
 // Log connection state changes
 customerDbConnection.on('connecting', () => {

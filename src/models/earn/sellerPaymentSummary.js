@@ -15,6 +15,6 @@ const sellerPaymentSummarySchema = new Schema({
 }, { timestamps: true });
 
 // Create index for faster lookup
-sellerPaymentSummarySchema.index({ seller_id: 1 });
+// sellerPaymentSummarySchema.index({ seller_id: 1 });
 
 export default mongoose.model('SellerPaymentSummary', sellerPaymentSummarySchema); 

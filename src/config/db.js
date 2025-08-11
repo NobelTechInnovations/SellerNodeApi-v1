@@ -9,19 +9,8 @@ const connectDB = async () => {
         }
         
         console.log('Attempting to connect to MongoDB...');
-        
-        // Adding connection options to improve reliability
-        const options = {
-            connectTimeoutMS: 30000, // 30 seconds
-            socketTimeoutMS: 45000, // 45 seconds
-            serverSelectionTimeoutMS: 30000, // 30 seconds
-            maxPoolSize: 10, // Maximum number of connections in the pool
-            minPoolSize: 1,
-            retryWrites: true,
-            retryReads: true
-        };
-        
-        const conn = await mongoose.connect(mongoURI, options);
+         
+        const conn = await mongoose.connect(mongoURI);
         
         // Add connection event listeners
         mongoose.connection.on('error', (err) => {

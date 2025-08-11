@@ -1,5 +1,5 @@
 import BaseService from './baseService.js';
-import { Order } from '../../models/orders/order.js';
+import Order from '../../models/orders/order.js';
 
 class OrderService extends BaseService {
 

@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const { Schema } = mongoose;
 
-const orderSchema = new Schema({
+const OrderSchema = new Schema({
   order_number: { type: String, required: true, unique: true },
   status: {
     type: String,
@@ -48,4 +48,4 @@ const orderSchema = new Schema({
 }, { timestamps: true });
 
 
-export default mongoose.model('Order', orderSchema);
+export default mongoose.model('Order', OrderSchema);
