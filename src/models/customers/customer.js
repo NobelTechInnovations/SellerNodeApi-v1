@@ -1,17 +1,24 @@
-// create schema for customer
 import mongoose from 'mongoose';
 
-const customerSchema = new mongoose.Schema({
+const { Schema } = mongoose;
+
+const orderCustomerSchema = new Schema({
+  orderId: { type: Schema.Types.ObjectId, ref: 'Order'}, 
+
+  // customerId: { type: Schema.Types.ObjectId, ref: 'Customer' },
+
   name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  phone: { type: String, required: true, unique: true },
+  email: { type: String },
+  phone: { type: String, required: true },
+
   address: { type: String, required: true },
   pincode: { type: String, required: true },
-  password: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
-});
+  latitude: { type: Number },
+  longitude: { type: Number },
 
-const Customer = mongoose.model('Customer', customerSchema);
+}, { timestamps: true });
 
-export default Customer;
+
+const OrderCustomer = mongoose.model('OrderCustomer', orderCustomerSchema);
+
+export default OrderCustomer;

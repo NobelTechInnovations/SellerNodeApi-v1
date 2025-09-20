@@ -4,7 +4,8 @@ const { Schema } = mongoose;
 
 const orderProductSchema = new Schema({
   sku: { type: String },
-  productId: { type: Schema.Types.ObjectId, ref: 'Product' },
+  // productId: { type: Schema.Types.ObjectId, ref: 'Product' },
+  productId: { type: String },
   product_type: { type: String },
   base_price: { type: Number, default: 0 },
   qty: { type: Number, default: 0 },
@@ -20,8 +21,9 @@ const orderProductSchema = new Schema({
     image: String,
     order_price: Number,
     qty: Number,
-    id: Schema.Types.ObjectId,
+    id: String,
     sku: String
+    // id: Schema.Types.ObjectId,
   }
 }, { timestamps: true });
 

@@ -45,6 +45,7 @@ const OrderSchema = new Schema({
   refund: { type: Number, default: 0 },
   extra: { type: Schema.Types.Mixed, default: {} },
   orderProduct: { type: Schema.Types.ObjectId, ref: 'OrderProduct' },
+  orderCustomer: { type: Schema.Types.ObjectId, ref: 'OrderCustomer' },
 }, { timestamps: true });
 
 
