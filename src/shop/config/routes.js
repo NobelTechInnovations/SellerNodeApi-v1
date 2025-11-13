@@ -5,6 +5,7 @@ import auth from '../middlewares/authMiddleware.js';
 import catalogRoutes from '../routes/catalogRoutes.js';
 import cartRoutes from '../routes/cartRoutes.js';
 import paymentRoutes from '../routes/paymentRoutes.js'
+import themeRoutes from '../routes/themeRoutes.js'
 
 const router = express.Router();
 
@@ -27,6 +28,9 @@ router.post('/auth/add-address', auth, customerAuthController.customerAddressAdd
 // Cart Routes
 router.use('/cart', cartRoutes);
 router.use('/payments',paymentRoutes)
+
+//mobile theme routes
+router.use('/theme',themeRoutes)
 
 // Catalog Routes
 router.use('/gz/catalog', catalogRoutes);
