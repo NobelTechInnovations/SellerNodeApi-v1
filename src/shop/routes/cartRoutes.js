@@ -13,6 +13,7 @@ router.get('/', cartController.getCart);
 
 // Add item to cart
 router.post('/items', cartController.addToCart);
+router.post('/items-bulk', cartController.addToBulkCart);
 
 // Update cart item
 router.put('/items/:cartItemId', cartController.updateCartItem);

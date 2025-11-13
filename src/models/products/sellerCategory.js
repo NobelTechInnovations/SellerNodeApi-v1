@@ -21,7 +21,27 @@ const sellerCategorySchema = new mongoose.Schema({
         default: false
     }
 }, {
-    timestamps: true
+    timestamps: true,
+
+    toJSON: {
+        virtuals: true,
+        transform(doc, ret) {
+            delete ret.__v;
+            delete ret.createdAt;
+            delete ret.updatedAt;
+            return ret;
+        }
+    },
+
+    toObject: {
+        virtuals: true,
+        transform(doc, ret) {
+            delete ret.__v;
+            delete ret.createdAt;
+            delete ret.updatedAt;
+            return ret;
+        }
+    }
 });
 
 export default mongoose.model('SellerCategory', sellerCategorySchema);

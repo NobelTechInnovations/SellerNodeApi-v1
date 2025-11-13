@@ -42,7 +42,27 @@ const sellerBankDetailsSchema = new mongoose.Schema({
         default: null
     }
 }, {
-    timestamps: true
+    timestamps: true,
+
+    toJSON: {
+        virtuals: true,
+        transform(doc, ret) {
+            delete ret.__v;
+            delete ret.createdAt;
+            delete ret.updatedAt;
+            return ret;
+        }
+    },
+
+    toObject: {
+        virtuals: true,
+        transform(doc, ret) {
+            delete ret.__v;
+            delete ret.createdAt;
+            delete ret.updatedAt;
+            return ret;
+        }
+    }
 });
 
 export default mongoose.model('SellerBankDetails', sellerBankDetailsSchema); 

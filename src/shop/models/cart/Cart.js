@@ -44,11 +44,33 @@ const cartSchema = new mongoose.Schema({
         default: false
     }
 }, {
-    timestamps: true
+    timestamps: true,
+
+    toJSON: {
+        virtuals: true,
+        transform(doc, ret) {
+            delete ret.__v;
+            delete ret.createdAt;
+            delete ret.updatedAt;
+            return ret;
+        }
+    },
+
+    toObject: {
+        virtuals: true,
+        transform(doc, ret) {
+            delete ret.__v;
+            delete ret.createdAt;
+            delete ret.updatedAt;
+            return ret;
+        }
+    }
 });
 
 // Index for faster queries
 cartSchema.index({ customerId: 1, isActive: 1 });
+
+
 
 // Use the customer database connection
 const Cart = customerDbConnection.model('Cart', cartSchema);

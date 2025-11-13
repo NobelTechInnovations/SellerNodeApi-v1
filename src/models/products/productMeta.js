@@ -36,7 +36,27 @@ const productMetaSchema = new mongoose.Schema({
         }
     }]
 }, {
-    timestamps: true
+    timestamps: true,
+
+    toJSON: {
+        virtuals: true,
+        transform(doc, ret) {
+            delete ret.__v;
+            delete ret.createdAt;
+            delete ret.updatedAt;
+            return ret;
+        }
+    },
+
+    toObject: {
+        virtuals: true,
+        transform(doc, ret) {
+            delete ret.__v;
+            delete ret.createdAt;
+            delete ret.updatedAt;
+            return ret;
+        }
+    }
 });
 
 // Add compound index to ensure each product has only one meta record

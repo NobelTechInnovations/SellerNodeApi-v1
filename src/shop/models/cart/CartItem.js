@@ -62,7 +62,27 @@ const cartItemSchema = new mongoose.Schema({
         sellerName: String
     }
 }, {
-    timestamps: true
+    timestamps: true,
+
+    toJSON: {
+        virtuals: true,
+        transform(doc, ret) {
+            delete ret.__v;
+            delete ret.createdAt;
+            delete ret.updatedAt;
+            return ret;
+        }
+    },
+
+    toObject: {
+        virtuals: true,
+        transform(doc, ret) {
+            delete ret.__v;
+            delete ret.createdAt;
+            delete ret.updatedAt;
+            return ret;
+        }
+    }
 });
 
 // Indexes for faster queries

@@ -12,9 +12,13 @@ import SellerWarehouse from '../../models/users/sellerWarehouse.js';
 import ProductImage from '../../models/products/productImage.js';
 import ProductSellerSku from '../../models/products/productSellerSku.js';
 import { Customer } from '../models/index.js';
+import FeeService from './feeService.js';
+import {CartTransformer} from '../transformers/cart.transformer.js'
+import RedisClient from '../../../redis-client.js'
 
 
 class CartService extends BaseService {
+
     async getOrCreateCart(customer) {
         return await this.handleDBOperation(async () => {
             // Find active cart for customer
@@ -121,57 +125,182 @@ class CartService extends BaseService {
         }
     }
 
-    async addToCart(customer, productData) {
+    async addToBulkCart(customer, productsArray) {
+    return await this.handleDBOperation(async () => {
+        if (!Array.isArray(productsArray) || productsArray.length === 0) {
+        return { success: false, message: "No products provided" };
+        }
+
+        let cart = await this.getOrCreateCart(customer);
+
+        try {
+        for (const rawItem of productsArray) {
+            const productId = rawItem.gspin;
+            const sku = rawItem.p_sku;
+            const quantity = Number(rawItem.quantity || 1) || 1;
+
+            if (!productId) {
+            console.warn("Skipping product - missing productId:", rawItem);
+            continue;
+            }
+
+            const productDetails = await this.fetchProductDetails(productId, sku);
+
+            const existingItem = await CartItem.findOne({
+            cartId: cart._id,
+            productId: productId,
+            sku: sku,
+            saveForLater: false
+            });
+
+            if (existingItem) {
+
+            existingItem.quantity = (existingItem.quantity || 0) + quantity;
+            const unitPrice = productDetails?.price ?? existingItem.basePrice ?? existingItem.price ?? 0;
+            existingItem.basePrice = unitPrice;
+            existingItem.price = unitPrice;
+            existingItem.total = unitPrice * existingItem.quantity;
+            await existingItem.save();
+            } else {
+            // Build additional array from selected_combination.variant if present
+            let additional = [];
+            if (productDetails?.selected_combination?.variant) {
+                // selected_combination.variant might be a Map or an object; handle both
+                const variantMap = productDetails.selected_combination.variant;
+                if (typeof variantMap.entries === "function") {
+                // Map-like
+                additional = Array.from(variantMap.entries()).map(([key, value]) => {
+                    const v = value._doc || value;
+                    return { [key]: v.value };
+                });
+                } else {
+                // plain object
+                additional = Object.keys(variantMap).map((key) => {
+                    const v = variantMap[key]._doc ?? variantMap[key];
+                    return { [key]: v.value ?? v };
+                });
+                }
+            }
+
+            const unitPrice = productDetails?.price ?? 0;
+
+            // create new cart item
+            await CartItem.create({
+                cartId: cart._id,
+                productId: productId,
+                quantity: quantity,
+                sku: sku,
+                type: productDetails?.type ?? rawItem.type ?? "simple",
+                price: unitPrice,
+                basePrice: unitPrice,
+                total: unitPrice * quantity,
+                additional,
+                productDetails: productDetails
+            });
+            }
+        } // end for
+
+        // update cart totals once
+        await this.collectTotals(cart._id);
+        await this.invalidateCartCache(cart._id);
+        return await this.getCartDetails(cart._id);
+        } catch (err) {
+
+        throw err;
+        }
+    });
+    }
+
+
+   async addToCart(customer, productData) {
         return await this.handleDBOperation(async () => {
             // Find or create active cart for customer
             let cart = await this.getOrCreateCart(customer);
 
-            // Fetch product details from product database, passing the selected SKU
+            // ensure quantity
+            const qty = Number(productData.quantity ?? 1) || 1;
+
+            // Fetch product details (may be variable/simple)
             const productDetails = await this.fetchProductDetails(productData.productId, productData.sku);
+
             // Check if product already exists in cart with the same SKU
             const existingItem = await CartItem.findOne({
-                cartId: cart._id,
-                productId: productData.productId,
-                sku: productData.sku,
-                saveForLater: false
+            cartId: cart._id,
+            productId: productData.productId,
+            sku: productData.sku,
+            saveForLater: false
             });
 
             if (existingItem) {
-                // Update existing item quantity
-                existingItem.quantity += productData.quantity;
-                existingItem.total = existingItem.basePrice * existingItem.quantity;
-
-                await existingItem.save();
+            // Update existing item quantity
+            existingItem.quantity = (existingItem.quantity || 0) + qty;
+            existingItem.total = (existingItem.basePrice || existingItem.price || 0) * existingItem.quantity;
+            await existingItem.save();
             } else {
-                const variantMap = productDetails?.selected_combination?.variant;
-                const additional = Array.from(variantMap.entries()).map(([key, value]) => {
-                    const v = value._doc || value;
-                    return {
-                      [key]: v.value,
-                    };
-                  });
+            // Build additional array from selected_combination.variant if present
+            let additional = [];
 
-                // Create new cart item
-                await CartItem.create({
-                    cartId: cart._id,
-                    productId: productData.productId,
-                    quantity: productData.quantity,
-                    sku: productData.sku,
-                    type: productDetails.type,
-                    price: productDetails.price,
-                    basePrice: productDetails.price,
-                    total: productDetails.price * productData.quantity,
-                    additional, // Assign determined additional data
-                    productDetails: productDetails
-                });
+            const variant = productDetails?.selected_combination?.variant;
+
+            if (variant) {
+                // If it's a Map-like structure (has entries), iterate safely
+                if (typeof variant.entries === 'function') {
+                try {
+                    for (const [key, value] of variant.entries()) {
+                    const v = value && (value._doc ?? value);
+                    additional.push({ [key]: v?.value ?? v });
+                    }
+                } catch (e) {
+                    // fallback: convert to object and continue
+                    console.warn('variant.entries iteration failed, falling back to object iteration', e);
+                    try {
+                    const obj = Object.fromEntries(variant);
+                    for (const key of Object.keys(obj)) {
+                        const v = obj[key];
+                        const val = v && (v._doc ?? v);
+                        additional.push({ [key]: val?.value ?? val });
+                    }
+                    } catch (e2) {
+                    console.warn('fallback conversion failed', e2);
+                    }
+                }
+                } else if (typeof variant === 'object') {
+                // plain object
+                for (const key of Object.keys(variant)) {
+                    const v = variant[key];
+                    const val = v && (v._doc ?? v);
+                    // support both { attribute: { value: '128GB' } } or simple strings
+                    additional.push({ [key]: val?.value ?? val });
+                }
+                } else {
+                // unexpected type — store as-is
+                additional.push({ variant });
+                }
+            }
+
+            // Create new cart item
+            await CartItem.create({
+                cartId: cart._id,
+                productId: productData.productId,
+                quantity: qty,
+                sku: productData.sku,
+                type: productDetails?.type ?? productData.type ?? 'simple',
+                price: productDetails?.price ?? 0,
+                basePrice: productDetails?.price ?? 0,
+                total: (productDetails?.price ?? 0) * qty,
+                additional,
+                productDetails: productDetails
+            });
             }
 
             // Update cart totals
             await this.collectTotals(cart._id);
-
+            await this.invalidateCartCache(cart._id);
+            // return fresh cart details
             return await this.getCartDetails(cart._id);
         });
-    }
+        }
+
 
     async updateCartItem(customer, cartItemId, updateData) {
         return await this.handleDBOperation(async () => {
@@ -210,7 +339,7 @@ class CartService extends BaseService {
 
             // Update cart totals
             await this.collectTotals(cart._id);
-
+            await this.invalidateCartCache(cart._id);
             return await this.getCartDetails(cart._id);
         });
     }
@@ -230,7 +359,7 @@ class CartService extends BaseService {
 
             // Update cart totals
             await this.collectTotals(cart._id);
-
+            await this.invalidateCartCache(cart._id);
             return await this.getCartDetails(cart._id);
         });
     }
@@ -253,7 +382,7 @@ class CartService extends BaseService {
 
             // Update cart totals
             await this.collectTotals(cart._id);
-
+            await this.invalidateCartCache(cart._id);
             return await this.getCartDetails(cart._id);
         });
     }
@@ -289,7 +418,7 @@ class CartService extends BaseService {
 
             // Update cart totals
             await this.collectTotals(cart._id);
-
+            await this.invalidateCartCache(cart._id);
             return await this.getCartDetails(cart._id);
         });
     }
@@ -331,24 +460,68 @@ class CartService extends BaseService {
 
             // Reset cart totals
             await this.collectTotals(cart._id);
-
+            await this.invalidateCartCache(cart._id);
             return await this.getCartDetails(cart._id);
         });
     }
 
     async getCartDetails(cartId) {
+        const cacheKey = `cart:${cartId}`;
+        const CACHE_TTL = Number(process.env.CART_CACHE_TTL ?? 60); // seconds
+
+        // 1) Try to read from cache (safe)
+        try {
+            const raw = await RedisClient.get(cacheKey);
+            console.log(raw);
+            if (raw) {
+            try {
+                const parsed = JSON.parse(raw);
+                return parsed;
+            } catch (err) {
+                console.warn(`[cache] failed to parse cached payload for ${cacheKey}`, err);
+            }
+            }
+        } catch (redisErr) {
+            console.warn(`[cache] GET ${cacheKey} failed (falling back to DB):`, redisErr?.message || redisErr);
+        }
+
         const cart = await Cart.findById(cartId);
         if (!cart) {
             throw new AppError('Cart not found', 404);
         }
 
-        const cartItems = await CartItem.find({ cartId })
-            .sort({ createdAt: -1 });
+        const cartItems = await CartItem.find({ cartId }).sort({ createdAt: -1 });
 
-        return {
-            cart,
-            items: cartItems
+        const userId = cart.customerId || null;
+        const customer = userId ? await Customer.findById(userId) : null;
+
+        let fees = { platform_fee_amount: 0, handling_fee_amount: 0, delivery_fee_amount: 0 };
+        try {
+            if (this.feeService && typeof this.feeService.computeFees === 'function') {
+            fees = this.feeService.computeFees(customer);
+            } else if (typeof FeeService?.computeFees === 'function') {
+            fees = FeeService.computeFees(customer);
+            }
+        } catch (err) {
+            console.warn('Fee computation failed, using zero-fees fallback', err?.message || err);
+        }
+
+        const payload = {
+            cart: CartTransformer.cart(cart, fees),
+            items: CartTransformer.items(cartItems)
         };
+
+        // 3) Cache the payload (best-effort)
+        try {
+            // node-redis set with EX option expects object form: { EX: ttl }
+            // If your Redis client expects different signature (older versions), adjust accordingly.
+            await RedisClient.set(cacheKey, JSON.stringify(payload), { EX: CACHE_TTL });
+            // Optional: console.debug(`[cache] set ${cacheKey} ttl=${CACHE_TTL}`);
+        } catch (redisErr) {
+            console.warn(`[cache] SET ${cacheKey} failed (ignored):`, redisErr?.message || redisErr);
+        }
+
+        return payload;
     }
 
     async getCartFullDetails(cartId) {
@@ -471,15 +644,24 @@ class CartService extends BaseService {
             };
         }));
 
+
+            const userId = cart.customerId || null;
+            const customer = userId ? await Customer.findById(userId) : null;
+
+            let fees = { platform_fee_amount: 0, handling_fee_amount: 0, delivery_fee_amount: 0 };
+            try {
+                if (this.feeService && typeof this.feeService.computeFees === 'function') {
+                fees = this.feeService.computeFees(customer);
+                } else if (typeof FeeService?.computeFees === 'function') {
+                fees = FeeService.computeFees(customer);
+                }
+            } catch (err) {
+                console.warn('Fee computation failed, using zero-fees fallback', err?.message || err);
+            }
+
+
         return {
-            cart: {
-                totalItems: cart.totalItems,
-                totalQuantity: cart.totalQuantity,
-                subtotal: cart.subtotal,
-                tax: cart.tax,
-                discount: cart.discount,
-                finalAmount: cart.finalAmount
-            },
+            cart: CartTransformer.cart(cart, fees),
             items: enhancedItems
         };
     }
@@ -508,6 +690,18 @@ class CartService extends BaseService {
         });
     }
     
+
+    async invalidateCartCache(cartId) {
+        const cacheKey = `cart:${cartId}`;
+
+        try {
+            await RedisClient.del(cacheKey);
+            // Optional log:
+            // console.log(`[cache] deleted ${cacheKey}`);
+        } catch (err) {
+            console.warn(`[cache] failed to delete ${cacheKey}:`, err?.message || err);
+        }
+    }
 
 }
 

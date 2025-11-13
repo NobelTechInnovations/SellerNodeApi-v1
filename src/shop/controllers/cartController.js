@@ -18,6 +18,11 @@ class CartController extends BaseController {
         return this.sendResponse(res, result, 'Item added to cart successfully');
     });
 
+    addToBulkCart = catchAsync(async (req, res) => {
+        const result = await cartService.addToBulkCart(req.customer, req.body);
+        return this.sendResponse(res, result, 'Item added to cart successfully');
+    });
+
     updateCartItem = catchAsync(async (req, res) => {
         const { cartItemId } = req.params;
         const result = await cartService.updateCartItem(req.customer, cartItemId, req.body);
