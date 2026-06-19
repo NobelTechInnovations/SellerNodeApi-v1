@@ -24,18 +24,24 @@
 
 // export default RedisClient;
 
+
+
+
+
+
+
 import { createClient } from "redis";
 
 const RedisClient = createClient({
-  url: process.env.REDIS_URL,
-
+  username: process.env.REDIS_USERNAME || "default",
+  password: process.env.REDIS_PASSWORD,
   socket: {
-    tls: true, // Redis Cloud usually requires TLS
-    rejectUnauthorized: false,
+    host: process.env.REDIS_HOST,
+    port: Number(process.env.REDIS_PORT),
 
     reconnectStrategy(retries) {
       if (retries > 10) {
-        console.error("Redis max retries reached");
+        console.log("Redis max retries reached");
         return false;
       }
 
@@ -45,7 +51,7 @@ const RedisClient = createClient({
 });
 
 RedisClient.on("connect", () => {
-  console.log("🔄 Connecting to Redis...");
+  console.log("🔄 Connecting Redis...");
 });
 
 RedisClient.on("ready", () => {
@@ -53,20 +59,15 @@ RedisClient.on("ready", () => {
 });
 
 RedisClient.on("error", (err) => {
-  console.error("[Redis] Client Error:", err?.message || err);
+  console.error("❌ Redis Error:", err.message);
 });
 
-RedisClient.on("end", () => {
-  console.log("❌ Redis Connection Closed");
-});
-
-// Connect without crashing app
 (async () => {
   try {
     await RedisClient.connect();
     console.log("✅ Redis Connected");
   } catch (err) {
-    console.error("❌ Redis Failed:", err?.message || err);
+    console.error("❌ Redis Connection Failed:", err.message);
   }
 })();
 
