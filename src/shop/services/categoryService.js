@@ -4,7 +4,19 @@ import ProductPrice from '../../models/products/productPrice.js';
 import BaseService from './baseService.js';
 import ProductVariation from '../../models/products/productVariation.js';
 import ProductCombination from '../../models/products/productCombination.js';
+import { getEligibleProductIdsForLocation } from './geoService.js';
 
+// A Decimal128 field comes back from .lean() as either a plain number/string
+// or a `{ $numberDecimal: "123.45" }` object depending on the mongoose
+// version/path it went through — normalize both to a JS number.
+function toNumberPrice(value) {
+    if (value == null) return null;
+    if (typeof value === 'number') return value;
+    if (typeof value === 'object' && value.$numberDecimal !== undefined) {
+        return parseFloat(value.$numberDecimal);
+    }
+    return parseFloat(value);
+}
 
 class CategoryService extends BaseService {
     constructor() {
@@ -17,11 +29,11 @@ class CategoryService extends BaseService {
             .sort({ createdAt: -1 })
             .limit(limit)
             .lean();
-        
+
         for (let child of children) {
             child.children = await this.getChildCategories(child._id, limit);
         }
-        
+
         return children;
     }
 
@@ -29,12 +41,12 @@ class CategoryService extends BaseService {
     async getAllChildCategoryIds(parentId) {
         const childCategories = await Category.find({ parent: parentId }).lean();
         let categoryIds = [parentId];
-        
+
         for (const child of childCategories) {
             const childIds = await this.getAllChildCategoryIds(child._id);
             categoryIds = [...categoryIds, ...childIds];
         }
-        
+
         return categoryIds;
     };
 
@@ -99,9 +111,124 @@ class CategoryService extends BaseService {
         });
     }
 
+    /**
+     * Shared filter-building + product-flattening logic used by both
+     * categoryItems (category-scoped) and nearbyProducts (unscoped).
+     * `categoryIds` may be null for an unscoped "all categories" query.
+     */
+    async _queryFilteredProducts({ categoryIds, lat, lng, minPrice, maxPrice, brand, page, limit }) {
+        const productQuery = { status: 'published' };
+        if (categoryIds) {
+            productQuery.category_id = { $in: categoryIds };
+        }
 
-    async categoryItems(categoryId) {
+        if (brand) {
+            const brands = String(brand).split(',').map((b) => b.trim()).filter(Boolean);
+            if (brands.length > 0) productQuery.brand = { $in: brands };
+        }
+
+        // Geo filter: only applied when a buyer location was supplied.
+        // Absent lat/lng -> skip filtering entirely (keeps dev/testing and
+        // any not-yet-located caller usable rather than hard-failing).
+        if (lat != null && lng != null) {
+            const eligibleProductIds = await getEligibleProductIdsForLocation(lat, lng);
+            if (eligibleProductIds !== null) {
+                productQuery.product_id = { $in: eligibleProductIds };
+            }
+        }
+
+        let productsQuery = product.find(productQuery)
+            .populate('category_id', 'name slug parent')
+            .populate('images', 'thumbnail_image gallery_images')
+            .populate('descriptions', 'title description');
+
+        const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+        const pageLimit = Math.min(Math.max(parseInt(limit, 10) || 0, 0), 200); // 0 = unlimited (back-compat)
+        if (pageLimit > 0) {
+            productsQuery = productsQuery.skip((pageNum - 1) * pageLimit).limit(pageLimit);
+        }
+
+        const products = await productsQuery.lean();
+
+        // Brand facet (cheap, category-scoped distinct) for filter UI options.
+        const brandFacetQuery = { status: 'published' };
+        if (categoryIds) brandFacetQuery.category_id = { $in: categoryIds };
+        const availableBrands = await product.distinct('brand', brandFacetQuery);
+
+        if (!products || products.length === 0) {
+            return { flattenedProducts: [], availableBrands: availableBrands.filter(Boolean) };
+        }
+
+        // Fetch all prices for simple products
+        const simpleProductIds = products.filter(p => p.type !== 'variable').map(p => p.product_id);
+        const simplePrices = await ProductPrice.find({ product_id: { $in: simpleProductIds } }).lean();
+        const simplePriceMap = {};
+        simplePrices.forEach(price => {
+            simplePriceMap[price.product_id] = price;
+        });
+
+        const minPriceNum = minPrice != null && minPrice !== '' ? Number(minPrice) : null;
+        const maxPriceNum = maxPrice != null && maxPrice !== '' ? Number(maxPrice) : null;
+        const withinPriceRange = (priceNum) => {
+            if (priceNum == null) return minPriceNum == null && maxPriceNum == null; // no price data -> only include if no price filter requested
+            if (minPriceNum != null && priceNum < minPriceNum) return false;
+            if (maxPriceNum != null && priceNum > maxPriceNum) return false;
+            return true;
+        };
+
+        const flattenedProducts = [];
+        for (const p of products) {
+            const productTitle = p.descriptions && p.descriptions[0] ? p.descriptions[0].title : p.product_id;
+            if (p.type === 'variable') {
+                const combinations = await ProductCombination.find({ product_id: p.product_id }).lean();
+                for (const combination of combinations) {
+                    const combinationPrice = toNumberPrice(combination.price);
+                    if (!withinPriceRange(combinationPrice)) continue;
+
+                    let variationText = '';
+                    if (combination.variant) {
+                        variationText = Object.values(combination.variant)
+                            .map(v => v.value)
+                            .join(', ');
+                    }
+                    const title = variationText
+                        ? `${productTitle} (${variationText})`
+                        : productTitle;
+                    flattenedProducts.push({
+                        ...p,
+                        price: combination.price,
+                        stock: combination.stock,
+                        images: [{ thumbnail_image: combination.imageUrl && combination.imageUrl[0] ? combination.imageUrl[0] : (p.images && p.images[0] ? p.images[0].thumbnail_image : null), gallery_images: combination.imageUrl || [] }],
+                        sku: combination.sku,
+                        title,
+                        selected_variation: combination.variant,
+                        parent_product_id: p.product_id,
+                        type: 'variable_combination',
+                        descriptions: undefined
+                    });
+                }
+            } else {
+                const priceDoc = simplePriceMap[p.product_id] || null;
+                const sellingPrice = priceDoc ? toNumberPrice(priceDoc.selling_price) : null;
+                if (!withinPriceRange(sellingPrice)) continue;
+
+                flattenedProducts.push({
+                    ...p,
+                    price: priceDoc,
+                    sku: p.unified_sku,
+                    title: productTitle,
+                    descriptions: undefined
+                });
+            }
+        }
+
+        return { flattenedProducts, availableBrands: availableBrands.filter(Boolean) };
+    }
+
+    async categoryItems(categoryId, queryParams = {}) {
         return await this.handleDBOperation(async () => {
+            const { lat, lng, minPrice, maxPrice, brand, subcategory, page, limit } = queryParams;
+
             // First get the main category
             const mainCategory = await Category.findById(categoryId).lean();
             if (!mainCategory) {
@@ -112,88 +239,40 @@ class CategoryService extends BaseService {
             const getAllChildCategoryIds = async (parentId) => {
                 const childCategories = await Category.find({ parent: parentId }).lean();
                 let categoryIds = [parentId];
-                
+
                 for (const child of childCategories) {
                     const childIds = await getAllChildCategoryIds(child._id);
                     categoryIds = [...categoryIds, ...childIds];
                 }
-                
+
                 return categoryIds;
             };
 
             // Get all category IDs (main + children)
-            const allCategoryIds = await getAllChildCategoryIds(categoryId);
+            let allCategoryIds = await getAllChildCategoryIds(categoryId);
 
-            // Get products from all categories
-            const products = await product.find({
-                status: 'published',
-                category_id: { $in: allCategoryIds }
-            })
-            .populate('category_id','name slug parent')
-            .populate('images', 'thumbnail_image gallery_images')
-            .populate('descriptions', 'title description')
-            .lean();
-
-            if (!products || products.length === 0) {
-                return {
-                    category: mainCategory,
-                    products: []
-                };
+            // Subcategory filter: narrow to the requested subset, but only
+            // ids that are actually within this category's own tree (a
+            // caller can't use it to leak products from other branches).
+            if (subcategory) {
+                const requested = String(subcategory).split(',').map((s) => s.trim()).filter(Boolean);
+                const allIdSet = new Set(allCategoryIds.map((id) => id.toString()));
+                const validRequested = requested.filter((id) => allIdSet.has(id));
+                if (validRequested.length > 0) {
+                    allCategoryIds = validRequested;
+                }
             }
 
-            // Fetch all prices for simple products
-            const simpleProductIds = products.filter(p => p.type !== 'variable').map(p => p.product_id);
-            const simplePrices = await ProductPrice.find({ product_id: { $in: simpleProductIds } }).lean();
-            const simplePriceMap = {};
-            simplePrices.forEach(price => {
-                simplePriceMap[price.product_id] = price;
+            const { flattenedProducts, availableBrands } = await this._queryFilteredProducts({
+                categoryIds: allCategoryIds, lat, lng, minPrice, maxPrice, brand, page, limit
             });
 
-            const flattenedProducts = [];
-            for (const product of products) {
-                // Extract title from descriptions
-                const productTitle = product.descriptions && product.descriptions[0] ? product.descriptions[0].title : product.product_id;
-                if (product.type === 'variable') {
-                    // Get variations and combinations
-                    const variation = await ProductVariation.findOne({ product_id: product.product_id }).lean();
-                    const combinations = await ProductCombination.find({ product_id: product.product_id }).lean();
-                    // For each combination, create a separate product entry
-                    for (const combination of combinations) {
-                        // Build a readable title from combination attributes
-                        let variationText = '';
-                        if (combination.variant) {
-                            variationText = Object.values(combination.variant)
-                                .map(v => v.value)
-                                .join(', ');
-                        }
-                        const title = variationText
-                            ? `${productTitle} (${variationText})`
-                            : productTitle;
-                        flattenedProducts.push({
-                            ...product,
-                            // Overwrite fields with combination-specific data
-                            price: combination.price,
-                            stock: combination.stock,
-                            images: [{ thumbnail_image: combination.imageUrl && combination.imageUrl[0] ? combination.imageUrl[0] : (product.images && product.images[0] ? product.images[0].thumbnail_image : null), gallery_images: combination.imageUrl || [] }],
-                            sku: combination.sku,
-                            title,
-                            selected_variation: combination.variant,
-                            parent_product_id: product.product_id,
-                            type: 'variable_combination',
-                            // Remove variations/combinations fields for flattened
-                            descriptions: undefined // Remove descriptions for clarity
-                        });
-                    }
-                } else {
-                    // Simple product, attach price and title, remove descriptions
-                    flattenedProducts.push({
-                        ...product,
-                        price: simplePriceMap[product.product_id] || null,
-                        sku:product.unified_sku,
-                        title: productTitle,
-                        descriptions: undefined // Remove descriptions for clarity
-                    });
-                }
+            if (flattenedProducts.length === 0) {
+                return {
+                    category: mainCategory,
+                    products: [],
+                    facets: { brands: availableBrands }
+                };
             }
 
             // Build category tree (ancestors from root to current)
@@ -231,7 +310,38 @@ class CategoryService extends BaseService {
                 category: mainCategory,
                 products: flattenedProducts,
                 category_tree: categoryTree,
-                root_category_with_children: rootCategoryWithChildren
+                root_category_with_children: rootCategoryWithChildren,
+                facets: { brands: availableBrands }
+            };
+        });
+    }
+
+    /**
+     * Unscoped product listing (no mandatory category) — same geo/price/brand
+     * filters as categoryItems, with an optional `category` param instead of
+     * a route-level category id. Groundwork for a future "products near you"
+     * home-page section.
+     */
+    async nearbyProducts(queryParams = {}) {
+        return await this.handleDBOperation(async () => {
+            const { lat, lng, minPrice, maxPrice, brand, category, page, limit } = queryParams;
+
+            let categoryIds = null;
+            if (category) {
+                const requested = String(category).split(',').map((s) => s.trim()).filter(Boolean);
+                categoryIds = [];
+                for (const catId of requested) {
+                    categoryIds = categoryIds.concat(await this.getAllChildCategoryIds(catId));
+                }
+            }
+
+            const { flattenedProducts, availableBrands } = await this._queryFilteredProducts({
+                categoryIds, lat, lng, minPrice, maxPrice, brand, page, limit
+            });
+
+            return {
+                products: flattenedProducts,
+                facets: { brands: availableBrands }
             };
         });
     }
@@ -246,12 +356,12 @@ class CategoryService extends BaseService {
             const getAllChildCategoryIds = async (parentId) => {
                 const childCategories = await Category.find({ parent: parentId }).lean();
                 let categoryIds = [parentId];
-                
+
                 for (const child of childCategories) {
                     const childIds = await this.getAllChildCategoryIds(child._id);
                     categoryIds = [...categoryIds, ...childIds];
                 }
-                
+
                 return categoryIds;
             };
 

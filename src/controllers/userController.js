@@ -178,6 +178,18 @@ export const sellerBankDetails = async (req, res) => {
 
       // Create or update serviceable zone
       const user = await User.findById(req.user._id);
+
+      // Seller-configurable delivery radius, bounded to the platform's
+      // 20-50km quick-commerce range (falls back to the 20km floor if not
+      // supplied, e.g. by older clients that predate this field).
+      const MIN_RADIUS_KM = 20;
+      const MAX_RADIUS_KM = 50;
+      const requestedRadiusKm = Number(req.body.radius_km);
+      const radiusKm = Number.isFinite(requestedRadiusKm)
+        ? Math.min(Math.max(requestedRadiusKm, MIN_RADIUS_KM), MAX_RADIUS_KM)
+        : MIN_RADIUS_KM;
+      const radiusMeters = radiusKm * 1000;
+
       const serviceableZone = await ServiceableZone.findOneAndUpdate(
           { seller_id: req.user._id },
           {
@@ -189,11 +201,11 @@ export const sellerBankDetails = async (req, res) => {
                   },
                   location: {
                       type: 'Point',
-                      coordinates: [ businessDetails.location.coordinates[0], 
+                      coordinates: [ businessDetails.location.coordinates[0],
                       businessDetails.location.coordinates[1]
                   ],
                   },
-                  radius: 5000, // 5 km in meters
+                  radius: radiusMeters,
                   is_active: true,
                   status: 'active',
                   updated_at: new Date()

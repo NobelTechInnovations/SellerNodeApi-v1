@@ -1,12 +1,25 @@
 import Order from '../../models/orders/order.js';
+import OrderProduct from '../../models/orders/orderProduct.js';
 
 export const getOrdersBySellerId = async (req, res) => {
   try {
     const sellerId = req.user._id;
-  
-    // Fetch orders and populate orderProducts if it's a ref
-    const orders = await Order.find({}).populate("orderProduct");
-  
+
+    // Scoped to this seller only — every order now belongs to exactly one
+    // seller (see orderService.placeOrder), so this is a direct, secure
+    // filter rather than the previous Order.find({}) which returned every
+    // seller's orders to any logged-in seller.
+    const orders = await Order.find({ seller_id: sellerId }).lean();
+
+    const orderIds = orders.map((o) => o._id);
+    const items = await OrderProduct.find({ order_id: { $in: orderIds } }).lean();
+    const itemsByOrderId = {};
+    for (const item of items) {
+      const key = item.order_id.toString();
+      if (!itemsByOrderId[key]) itemsByOrderId[key] = [];
+      itemsByOrderId[key].push(item);
+    }
+
     // Group by status
     const groupedOrders = {
       pending: [],
@@ -19,26 +32,33 @@ export const getOrdersBySellerId = async (req, res) => {
       cancelled: [],
       delivered: [],
     };
-  
+
     orders.forEach(order => {
+      order.items = itemsByOrderId[order._id.toString()] || [];
       if (groupedOrders[order.status]) {
         groupedOrders[order.status].push(order);
+      } else {
+        groupedOrders.pending.push(order);
       }
     });
-  
+
     res.status(200).json({ success: true, data: groupedOrders });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
   }
-  
-}; 
+
+};
 
 export const processOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
     const { order_process } = req.body;
+    const sellerId = req.user._id;
 
-    const order = await Order.findById(orderId);
+    // Ownership check baked directly into the query — a seller can only
+    // ever find/mutate their own order, never another seller's, even by
+    // guessing an id (each order belongs to exactly one seller now).
+    const order = await Order.findOne({ _id: orderId, seller_id: sellerId });
     if (!order) {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
@@ -56,5 +76,3 @@ export const processOrder = async (req, res) => {
     res.status(400).json({ success: false, error: error.message });
   }
 };
-
-

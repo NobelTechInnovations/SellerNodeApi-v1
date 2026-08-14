@@ -15,8 +15,15 @@ class CategoryController extends BaseController {
 
 
     categoryItems = catchAsync(async (req, res) => {
-        const result = await categoryService.categoryItems(req.params.categoryId);
+        const result = await categoryService.categoryItems(req.params.categoryId, req.query);
         return this.sendResponse(res, result, 'Category items fetched');
+    });
+
+    // Unscoped listing (no mandatory category) — same lat/lng + price/brand
+    // filters as categoryItems, plus an optional `category` query param.
+    nearbyProducts = catchAsync(async (req, res) => {
+        const result = await categoryService.nearbyProducts(req.query);
+        return this.sendResponse(res, result, 'Nearby products fetched');
     });
 
     // router.get('/:categoryId/item/:itemId', categoryController.categoryRecommendedProducts);

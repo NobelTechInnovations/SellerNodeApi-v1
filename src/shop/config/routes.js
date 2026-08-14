@@ -6,6 +6,7 @@ import catalogRoutes from '../routes/catalogRoutes.js';
 import cartRoutes from '../routes/cartRoutes.js';
 import paymentRoutes from '../routes/paymentRoutes.js'
 import themeRoutes from '../routes/themeRoutes.js'
+import locationRoutes from '../routes/locationRoutes.js'
 
 const router = express.Router();
 
@@ -34,5 +35,8 @@ router.use('/theme',themeRoutes)
 
 // Catalog Routes
 router.use('/gz/catalog', catalogRoutes);
+
+// Location Routes (unauthenticated geocode helper for the location gate)
+router.use('/gz/location', locationRoutes);
 
 export default router; 

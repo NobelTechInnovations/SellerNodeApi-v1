@@ -3,6 +3,10 @@ import mongoose from 'mongoose';
 const { Schema } = mongoose;
 
 const orderProductSchema = new Schema({
+  // The FK that was missing before — without this there was no way to
+  // query "all line items for order X" at all (Order only ever linked to
+  // its first item via the single `Order.orderProduct` ref).
+  order_id: { type: Schema.Types.ObjectId, ref: 'Order', required: true, index: true },
   sku: { type: String },
   // productId: { type: Schema.Types.ObjectId, ref: 'Product' },
   productId: { type: String },

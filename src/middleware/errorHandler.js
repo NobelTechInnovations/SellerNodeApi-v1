@@ -30,8 +30,8 @@ const errorHandler = (err, req, res, next) => {
         }, 400);
     }
 
-    // Default error
-    return sendError(res, err.message || 'Internal server error', err.name || 'INTERNAL_SERVER_ERROR', err.status || 500);
+    // Default error — use statusCode (integer) not status (string like 'fail')
+    return sendError(res, err.message || 'Internal server error', err.name || 'INTERNAL_SERVER_ERROR', err.statusCode || err.status || 500);
 };
 
 export default errorHandler;
