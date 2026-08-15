@@ -77,6 +77,11 @@ class ProductController extends BaseController {
             meta: metaDetails || null,
             price: null,
             sku: null,
+            // snapzo_sku — platform-assigned listing identifier (like Amazon's ASIN).
+            // Unique per product–seller listing. Used for filtering, deep-links, and
+            // seller product management. Null for legacy listings created before
+            // this field was added (they'll get one on next save).
+            snapzo_sku: productSellerSku?.snapzo_sku || null,
             selected_combination: null,  // Will hold the selected combination details
             variations: null,
             seller: {

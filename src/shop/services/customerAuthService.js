@@ -255,10 +255,12 @@ class CustomerAuthService extends BaseService {
             
     async customerAddressAdd(customer, data) {
         return await this.handleDBOperation(async () => {
-            if (!customerDbConnection.readyState) {
-                await customerDbConnection.connect();
-            }
-
+            // (Removed a `customerDbConnection.connect()` guard here — that
+            // method doesn't exist on a createConnection() Connection in
+            // Mongoose 8, so adding an address during any brief reconnect
+            // threw TypeError instead of connecting. handleDBOperation
+            // already handles connection state; the driver reconnects and
+            // Mongoose buffers commands on its own.)
             const { address, isDefault = false, ...rest } = data;
        
             if (!address) {

@@ -4,6 +4,8 @@ import OrderProduct from '../../models/orders/orderProduct.js';
 import { Cart, CartItem } from '../models/cart/index.js';
 import OrderCustomer from '../../models/customers/customer.js';
 import ProductSellerSKU from '../../models/products/productSellerSku.js';
+import AppError from '../utils/AppError.js';
+import eventService from './eventService.js';
 
 class OrderService extends BaseService {
 
@@ -153,6 +155,44 @@ class OrderService extends BaseService {
                     await order.save();
 
                     createdOrders.push(order);
+
+                    // Server-side conversion events — fired here (not by the
+                    // frontend) so they're never lost to a closed tab or
+                    // flaky network right after payment. Best-effort: a
+                    // tracking failure must never fail or roll back a real
+                    // order.
+                    //
+                    // One event PER ORDER LINE, not one per seller-order.
+                    // This previously emitted a single event carrying only
+                    // `sellerFinal` and no productId — which meant every
+                    // seller-analytics query that groups by product_id
+                    // (getSellerAnalytics.by_product, getProductPerformance's
+                    // revenue/units/conversion columns) bucketed 100% of real
+                    // revenue under a single "unknown" product. Per-product
+                    // revenue looked fine on synthetic data and was silently
+                    // empty for actual orders.
+                    //
+                    // Note the resulting semantics: summing `value` over
+                    // purchase events now yields product revenue (sum of line
+                    // totals), which excludes order-level shipping/fees that
+                    // `sellerFinal` included. That's the correct basis for
+                    // per-product analytics; order-level financials remain on
+                    // the Order document itself.
+                    for (const item of items) {
+                        eventService.trackEvent({
+                            customerId: customer._id.toString(),
+                            eventType: 'purchase',
+                            productId: item.productId,
+                            sellerId,
+                            orderId: order._id.toString(),
+                            price: item.price,
+                            quantity: item.quantity,
+                            value: item.total,
+                            currency: 'INR',
+                        }).catch((err) => {
+                            console.warn(`[orderService] purchase event tracking failed for order ${order._id} item ${item.productId}: ${err?.message || err}`);
+                        });
+                    }
                 }
 
                 cart.isActive = false;
@@ -172,6 +212,61 @@ class OrderService extends BaseService {
                 }
                 throw err;
             }
+        });
+    }
+
+    /**
+     * All orders placed by this customer (across every seller — a single
+     * checkout may have produced several, see placeOrder), newest first,
+     * each with its own line items attached.
+     */
+    async getMyOrders(customer) {
+        return await this.handleDBOperation(async () => {
+            // customer._id was constructed by the shop's own (nested,
+            // older-version) mongoose/bson install — passing that ObjectId
+            // instance directly into a query against a root-level model
+            // throws BSONVersionError (two incompatible bson package
+            // copies in this repo). Stringifying lets Mongoose re-cast it
+            // into its own compatible ObjectId during query building.
+            const orders = await Order.find({ customer_id: customer._id.toString() })
+                .sort({ createdAt: -1 })
+                .lean();
+
+            const orderIds = orders.map((o) => o._id);
+            const items = await OrderProduct.find({ order_id: { $in: orderIds } }).lean();
+            const itemsByOrderId = {};
+            for (const item of items) {
+                const key = item.order_id.toString();
+                if (!itemsByOrderId[key]) itemsByOrderId[key] = [];
+                itemsByOrderId[key].push(item);
+            }
+
+            return orders.map((order) => ({
+                ...order,
+                items: itemsByOrderId[order._id.toString()] || [],
+            }));
+        });
+    }
+
+    /**
+     * Single order detail, scoped to this customer (ownership check baked
+     * into the query itself, same pattern as the seller-side endpoints —
+     * a customer can't view another customer's order by guessing an id).
+     * Includes the delivery address via the linked OrderCustomer snapshot.
+     */
+    async getOrderDetail(customer, orderId) {
+        return await this.handleDBOperation(async () => {
+            const order = await Order.findOne({ _id: orderId, customer_id: customer._id.toString() }).lean();
+            if (!order) {
+                throw new AppError('Order not found', 404);
+            }
+
+            const items = await OrderProduct.find({ order_id: order._id }).lean();
+            const delivery = order.orderCustomer
+                ? await OrderCustomer.findById(order.orderCustomer).lean()
+                : null;
+
+            return { ...order, items, delivery };
         });
     }
 }

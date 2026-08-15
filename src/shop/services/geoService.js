@@ -82,4 +82,23 @@ export async function getEligibleProductIdsForLocation(lat, lng) {
   return getEligibleProductIds(sellerIds);
 }
 
-export default { getEligibleSellerIds, getEligibleProductIds, getEligibleProductIdsForLocation };
+/**
+ * A Set of product_ids sellable by an in-range (same-day eligible) seller,
+ * for annotating rather than filtering a product list — used by the
+ * "show all products" delivery toggle, where out-of-range products stay in
+ * the result set but get labeled 'standard' instead of 'same_day'. Returns
+ * `null` when no location was supplied (caller should treat everything as
+ * unknown/standard, or skip annotation entirely).
+ */
+export async function getSameDayEligibleProductIdSet(lat, lng) {
+  const eligibleProductIds = await getEligibleProductIdsForLocation(lat, lng);
+  if (eligibleProductIds === null) return null;
+  return new Set(eligibleProductIds);
+}
+
+export default {
+  getEligibleSellerIds,
+  getEligibleProductIds,
+  getEligibleProductIdsForLocation,
+  getSameDayEligibleProductIdSet,
+};

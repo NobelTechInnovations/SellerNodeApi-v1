@@ -4,7 +4,8 @@ import ProductPrice from '../../models/products/productPrice.js';
 import BaseService from './baseService.js';
 import ProductVariation from '../../models/products/productVariation.js';
 import ProductCombination from '../../models/products/productCombination.js';
-import { getEligibleProductIdsForLocation } from './geoService.js';
+import ProductSellerSKU from '../../models/products/productSellerSku.js';
+import { getEligibleProductIdsForLocation, getSameDayEligibleProductIdSet } from './geoService.js';
 
 // A Decimal128 field comes back from .lean() as either a plain number/string
 // or a `{ $numberDecimal: "123.45" }` object depending on the mongoose
@@ -116,10 +117,18 @@ class CategoryService extends BaseService {
      * categoryItems (category-scoped) and nearbyProducts (unscoped).
      * `categoryIds` may be null for an unscoped "all categories" query.
      */
-    async _queryFilteredProducts({ categoryIds, lat, lng, minPrice, maxPrice, brand, page, limit }) {
+    async _queryFilteredProducts({ categoryIds, productIds, lat, lng, minPrice, maxPrice, brand, page, limit, includeOutOfRange }) {
         const productQuery = { status: 'published' };
         if (categoryIds) {
             productQuery.category_id = { $in: categoryIds };
+        }
+        // productIds: an explicit business-key allowlist — used by
+        // recommendation hydration (similar/FBT/co-view rails) to turn a
+        // ranked list of product_ids into full product objects through this
+        // same pipeline, so recommendations get the exact same price/image/
+        // geo handling as regular category browsing.
+        if (productIds) {
+            productQuery.product_id = { $in: productIds };
         }
 
         if (brand) {
@@ -130,10 +139,33 @@ class CategoryService extends BaseService {
         // Geo filter: only applied when a buyer location was supplied.
         // Absent lat/lng -> skip filtering entirely (keeps dev/testing and
         // any not-yet-located caller usable rather than hard-failing).
+        //
+        // When includeOutOfRange is set, don't hard-exclude anything —
+        // instead compute the same-day-eligible set separately so every
+        // product can be annotated below with delivery_type: 'same_day' vs
+        // 'standard' (out-of-range seller, standard/longer delivery).
+        let sameDayEligibleSet = null;
+        let hasOutOfRangeProducts = false;
         if (lat != null && lng != null) {
-            const eligibleProductIds = await getEligibleProductIdsForLocation(lat, lng);
-            if (eligibleProductIds !== null) {
-                productQuery.product_id = { $in: eligibleProductIds };
+            if (includeOutOfRange) {
+                sameDayEligibleSet = await getSameDayEligibleProductIdSet(lat, lng);
+            } else {
+                const eligibleProductIds = await getEligibleProductIdsForLocation(lat, lng);
+                if (eligibleProductIds !== null) {
+                    // Cheap indexed count of the same query minus the geo
+                    // restriction, just to know whether the "see all
+                    // products / standard delivery" toggle is worth showing
+                    // — a full second product fetch isn't needed for that.
+                    const unrestrictedCount = await product.countDocuments(productQuery);
+                    // Intersect with an explicit productIds allowlist if one
+                    // was also given, rather than one filter clobbering the other.
+                    const geoFilteredIds = productIds
+                        ? eligibleProductIds.filter((id) => productIds.includes(id))
+                        : eligibleProductIds;
+                    productQuery.product_id = { $in: geoFilteredIds };
+                    const restrictedCount = await product.countDocuments(productQuery);
+                    hasOutOfRangeProducts = unrestrictedCount > restrictedCount;
+                }
             }
         }
 
@@ -156,7 +188,7 @@ class CategoryService extends BaseService {
         const availableBrands = await product.distinct('brand', brandFacetQuery);
 
         if (!products || products.length === 0) {
-            return { flattenedProducts: [], availableBrands: availableBrands.filter(Boolean) };
+            return { flattenedProducts: [], availableBrands: availableBrands.filter(Boolean), hasOutOfRangeProducts };
         }
 
         // Fetch all prices for simple products
@@ -167,6 +199,16 @@ class CategoryService extends BaseService {
             simplePriceMap[price.product_id] = price;
         });
 
+        // Bulk-fetch snapzo_sku for all products in one round-trip so we can
+        // include it on every product card without N+1 queries.
+        const allProductIds = products.map(p => p.product_id);
+        const skuDocs = await ProductSellerSKU.find(
+            { product_id: { $in: allProductIds } },
+            { product_id: 1, snapzo_sku: 1 }
+        ).lean();
+        const snapzoSkuMap = {};
+        skuDocs.forEach(doc => { snapzoSkuMap[doc.product_id] = doc.snapzo_sku || null; });
+
         const minPriceNum = minPrice != null && minPrice !== '' ? Number(minPrice) : null;
         const maxPriceNum = maxPrice != null && maxPrice !== '' ? Number(maxPrice) : null;
         const withinPriceRange = (priceNum) => {
@@ -174,6 +216,13 @@ class CategoryService extends BaseService {
             if (minPriceNum != null && priceNum < minPriceNum) return false;
             if (maxPriceNum != null && priceNum > maxPriceNum) return false;
             return true;
+        };
+
+        // 'same_day' when in an in-range seller's zone, 'standard' when not,
+        // null when no buyer location was supplied at all (unknown).
+        const deliveryTypeFor = (productId) => {
+            if (sameDayEligibleSet == null) return null;
+            return sameDayEligibleSet.has(productId) ? 'same_day' : 'standard';
         };
 
         const flattenedProducts = [];
@@ -200,10 +249,12 @@ class CategoryService extends BaseService {
                         stock: combination.stock,
                         images: [{ thumbnail_image: combination.imageUrl && combination.imageUrl[0] ? combination.imageUrl[0] : (p.images && p.images[0] ? p.images[0].thumbnail_image : null), gallery_images: combination.imageUrl || [] }],
                         sku: combination.sku,
+                        snapzo_sku: snapzoSkuMap[p.product_id] || null,
                         title,
                         selected_variation: combination.variant,
                         parent_product_id: p.product_id,
                         type: 'variable_combination',
+                        delivery_type: deliveryTypeFor(p.product_id),
                         descriptions: undefined
                     });
                 }
@@ -216,18 +267,20 @@ class CategoryService extends BaseService {
                     ...p,
                     price: priceDoc,
                     sku: p.unified_sku,
+                    snapzo_sku: snapzoSkuMap[p.product_id] || null,
                     title: productTitle,
+                    delivery_type: deliveryTypeFor(p.product_id),
                     descriptions: undefined
                 });
             }
         }
 
-        return { flattenedProducts, availableBrands: availableBrands.filter(Boolean) };
+        return { flattenedProducts, availableBrands: availableBrands.filter(Boolean), hasOutOfRangeProducts };
     }
 
     async categoryItems(categoryId, queryParams = {}) {
         return await this.handleDBOperation(async () => {
-            const { lat, lng, minPrice, maxPrice, brand, subcategory, page, limit } = queryParams;
+            const { lat, lng, minPrice, maxPrice, brand, subcategory, page, limit, includeOutOfRange } = queryParams;
 
             // First get the main category
             const mainCategory = await Category.findById(categoryId).lean();
@@ -263,15 +316,17 @@ class CategoryService extends BaseService {
                 }
             }
 
-            const { flattenedProducts, availableBrands } = await this._queryFilteredProducts({
-                categoryIds: allCategoryIds, lat, lng, minPrice, maxPrice, brand, page, limit
+            const { flattenedProducts, availableBrands, hasOutOfRangeProducts } = await this._queryFilteredProducts({
+                categoryIds: allCategoryIds, lat, lng, minPrice, maxPrice, brand, page, limit,
+                includeOutOfRange: includeOutOfRange === 'true' || includeOutOfRange === true
             });
 
             if (flattenedProducts.length === 0) {
                 return {
                     category: mainCategory,
                     products: [],
-                    facets: { brands: availableBrands }
+                    facets: { brands: availableBrands },
+                    has_out_of_range_products: hasOutOfRangeProducts
                 };
             }
 
@@ -311,7 +366,8 @@ class CategoryService extends BaseService {
                 products: flattenedProducts,
                 category_tree: categoryTree,
                 root_category_with_children: rootCategoryWithChildren,
-                facets: { brands: availableBrands }
+                facets: { brands: availableBrands },
+                has_out_of_range_products: hasOutOfRangeProducts
             };
         });
     }
@@ -324,7 +380,7 @@ class CategoryService extends BaseService {
      */
     async nearbyProducts(queryParams = {}) {
         return await this.handleDBOperation(async () => {
-            const { lat, lng, minPrice, maxPrice, brand, category, page, limit } = queryParams;
+            const { lat, lng, minPrice, maxPrice, brand, category, page, limit, includeOutOfRange } = queryParams;
 
             let categoryIds = null;
             if (category) {
@@ -335,14 +391,39 @@ class CategoryService extends BaseService {
                 }
             }
 
-            const { flattenedProducts, availableBrands } = await this._queryFilteredProducts({
-                categoryIds, lat, lng, minPrice, maxPrice, brand, page, limit
+            const { flattenedProducts, availableBrands, hasOutOfRangeProducts } = await this._queryFilteredProducts({
+                categoryIds, lat, lng, minPrice, maxPrice, brand, page, limit,
+                includeOutOfRange: includeOutOfRange === 'true' || includeOutOfRange === true
             });
 
             return {
                 products: flattenedProducts,
-                facets: { brands: availableBrands }
+                facets: { brands: availableBrands },
+                has_out_of_range_products: hasOutOfRangeProducts
             };
+        });
+    }
+
+    /**
+     * Turn a RANKED list of product_id business keys (e.g. from a
+     * recommendation/co-purchase/co-view scoring pass) into full, hydrated
+     * product objects — same price/image/geo pipeline as everywhere else in
+     * the catalog. Mongo's `$in` doesn't preserve input order, so results
+     * are re-sorted to match `productIds`' order before returning, which
+     * matters for CTR-by-position accuracy downstream.
+     */
+    async hydrateProductsByIds(productIds, { lat, lng } = {}) {
+        return await this.handleDBOperation(async () => {
+            if (!productIds || productIds.length === 0) return [];
+
+            const { flattenedProducts } = await this._queryFilteredProducts({
+                productIds, lat, lng, limit: productIds.length,
+            });
+
+            const rank = new Map(productIds.map((id, i) => [id, i]));
+            return flattenedProducts
+                .filter((p) => rank.has(p.product_id))
+                .sort((a, b) => rank.get(a.product_id) - rank.get(b.product_id));
         });
     }
 

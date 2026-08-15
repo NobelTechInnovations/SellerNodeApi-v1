@@ -30,6 +30,12 @@ export const CartTransformer = {
             discount_amount: item.discountAmount,
             product_total: item.total,
             additional: item.additional,
+            // saveForLater — MUST be included so the frontend can partition
+            // active cart items vs the "Saved for Later" section. Without
+            // this, !!raw.saveForLater is always undefined→false and items
+            // saved via POST /cart/items/:id/save never appear in the saved
+            // section after a page refresh.
+            saveForLater: !!item.saveForLater,
 
             product_details: item.productDetails
                 ? {

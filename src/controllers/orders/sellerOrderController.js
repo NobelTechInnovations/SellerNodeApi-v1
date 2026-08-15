@@ -9,7 +9,10 @@ export const getOrdersBySellerId = async (req, res) => {
     // seller (see orderService.placeOrder), so this is a direct, secure
     // filter rather than the previous Order.find({}) which returned every
     // seller's orders to any logged-in seller.
-    const orders = await Order.find({ seller_id: sellerId }).lean();
+    // .populate('orderCustomer') so the seller can see the real delivery
+    // address/phone for this order (previously never fetched at all, so
+    // the seller panel always showed blank delivery details).
+    const orders = await Order.find({ seller_id: sellerId }).populate('orderCustomer').lean();
 
     const orderIds = orders.map((o) => o._id);
     const items = await OrderProduct.find({ order_id: { $in: orderIds } }).lean();

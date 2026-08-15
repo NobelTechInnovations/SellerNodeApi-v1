@@ -7,6 +7,11 @@ import cartRoutes from '../routes/cartRoutes.js';
 import paymentRoutes from '../routes/paymentRoutes.js'
 import themeRoutes from '../routes/themeRoutes.js'
 import locationRoutes from '../routes/locationRoutes.js'
+import orderRoutes from '../routes/orderRoutes.js'
+import eventRoutes from '../routes/eventRoutes.js'
+import homeFeedRoutes from '../routes/homeFeedRoutes.js'
+import recommendationRoutes from '../routes/recommendationRoutes.js'
+import wishlistRoutes from '../routes/wishlistRoutes.js'
 
 const router = express.Router();
 
@@ -39,4 +44,19 @@ router.use('/gz/catalog', catalogRoutes);
 // Location Routes (unauthenticated geocode helper for the location gate)
 router.use('/gz/location', locationRoutes);
 
-export default router; 
+// Customer's own order history
+router.use('/orders', orderRoutes);
+
+// Behavior tracking (view/search events) — powers home-feed personalization
+router.use('/gz/events', eventRoutes);
+
+// Dynamic/personalized home page feed
+router.use('/gz/home-feed', homeFeedRoutes);
+
+// Context-aware recommendations (home/category/pdp/cart/search placements)
+router.use('/gz/recommendations', recommendationRoutes);
+
+// Wishlist (M9) — per-customer, auth-gated
+router.use('/gz/wishlist', wishlistRoutes);
+
+export default router;

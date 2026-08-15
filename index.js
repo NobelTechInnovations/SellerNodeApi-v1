@@ -13,6 +13,7 @@ import attributeOptionRoutes from './routes/v1/admin/attributeOption/attributeOp
 import authRoutes from './routes/v1/admin/auth/authRoutes.js';
 import categoryRoutes from './routes/v1/admin/category/categoryRoutes.js';
 import sellerRoutes from './routes/v1/admin/seller/sellerRoutes.js';
+import adminAnalyticsRoutes from './routes/v1/admin/analytics/analyticsRoutes.js';
 import sellerCategoryRoutes from './routes/v1/seller/product/categoryRoutes.js';
 import productRoutes from './routes/v1/seller/product/productRoutes.js';
 import userRoutes from './routes/v1/seller/user/userRoutes.js';
@@ -23,6 +24,8 @@ import sellerReturnRoutes from './routes/v1/seller/accounts/returnRoutes.js';
 import sellerDashboardRoutes from './routes/v1/seller/accounts/dashboardRoutes.js';
 import sellerSupportRoutes from './routes/v1/seller/support/supportRoutes.js';
 import sellerAccountRoutes from './routes/v1/seller/accounts/accountRoutes.js';
+import sellerAnalyticsRoutes from './routes/v1/seller/analytics/analyticsRoutes.js';
+import sellerBidRoutes from './routes/v1/seller/bids/bidRoutes.js';
 import basicApiRoutes from './routes/v1/admin/mobile/basicApiRoutes.js';
 // import { mobileRoutes } from './src/mobile/index.js';
 import { shopRoutes } from './src/shop/index.js';
@@ -65,6 +68,7 @@ app.use('/v1/admin/auth', authRoutes);
 app.use('/v1/admin/category', categoryRoutes);
 app.use('/v1/admin/order', orderRoutes);
 app.use('/v1/admin/seller', sellerRoutes);
+app.use('/v1/admin/analytics', adminAnalyticsRoutes);
 app.use('/v1/admin/mobile', basicApiRoutes);
 
 // Seller routes
@@ -77,6 +81,8 @@ app.use('/v1/seller/return', sellerReturnRoutes);
 app.use('/v1/seller/dashboard', sellerDashboardRoutes);
 app.use('/v1/seller/support', sellerSupportRoutes);
 app.use('/v1/seller/accounts', sellerAccountRoutes);
+app.use('/v1/seller/analytics', sellerAnalyticsRoutes);
+app.use('/v1/seller/bids', sellerBidRoutes);
 
 // Mobile App routes
 app.use('/v1/shop', shopRoutes);

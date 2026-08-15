@@ -38,35 +38,36 @@ customerDbConnection.on('error', (error) => {
 customerDbConnection.on('disconnected', () => {
     console.log('Customer database disconnected');
     console.log('Connection state at disconnect:', customerDbConnection.readyState);
-    
-    // Attempt to reconnect
-    setTimeout(async () => {
-        console.log('Attempting to reconnect to customer database...');
-        try {
-            await customerDbConnection.connect();
-        } catch (err) {
-            console.error('Reconnection attempt failed:', err);
-        }
-    }, 5000);
+    // No manual reconnect here on purpose — see the note on the health
+    // check below. The driver reconnects on its own.
 });
 
-// Add a function to check connection health
-const checkConnectionHealth = async () => {
-    try {
-        if (customerDbConnection.readyState !== 1) {
-            console.log('Connection is not healthy. Current state:', customerDbConnection.readyState);
-            console.log('Attempting to reconnect...');
-            await customerDbConnection.connect();
-        } else {
-            // console.log('Connection is healthy. State:', customerDbConnection.readyState);
-        }
-    } catch (error) {
-        console.error('Health check failed:', error);
+// Connection health logging.
+//
+// This used to call `customerDbConnection.connect()` to "reconnect", but
+// Connection objects created by mongoose.createConnection() have no
+// .connect() method (that only exists on the mongoose singleton) — so on
+// Mongoose 8 every single attempt threw `TypeError:
+// customerDbConnection.connect is not a function` and the reconnect never
+// actually happened. The recovery path was dead code that only produced
+// noise in the logs.
+//
+// It isn't needed either: the MongoDB driver's topology monitor already
+// reconnects transparently, and Mongoose buffers commands issued while a
+// connection is briefly down. So this is now purely an observability log.
+const checkConnectionHealth = () => {
+    if (customerDbConnection.readyState !== 1) {
+        console.log('Customer DB connection not currently ready. State:', customerDbConnection.readyState,
+            '(driver will reconnect automatically)');
     }
 };
 
-// Check connection health every 30 seconds
-setInterval(checkConnectionHealth, 30000);
+// Check connection health every 30 seconds. .unref() so this timer never
+// by itself keeps the Node event loop alive — without it, ANY script that
+// imports this module (directly or transitively, e.g. via a shop model or
+// service) can never exit on its own and hangs forever after finishing its
+// work. That is exactly what happened to scripts/seedBehaviorData.js.
+setInterval(checkConnectionHealth, 30000).unref();
 
 // Handle process termination
 process.on('SIGINT', async () => {

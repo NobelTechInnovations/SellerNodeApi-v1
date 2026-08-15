@@ -73,14 +73,13 @@ const auth = async (req, res, next) => {
         }
 
         try {
-            // Check customer database connection state
+            // Log non-ready states but don't hard-block — Mongoose buffers
+            // commands and retries internally (readyState 2 = connecting).
+            // A hard 503 here caused all authenticated requests to fail
+            // during routine reconnection cycles. Let the timeout below
+            // surface the error if the DB truly can't be reached.
             if (customerDbConnection.readyState !== 1) {
-                console.error('Customer database not connected when trying to authenticate customer');
-                return res.status(503).json({
-                    success: false,
-                    message: 'Database connection unavailable',
-                    error: 'DB_UNAVAILABLE'
-                });
+                console.warn(`Customer DB readyState = ${customerDbConnection.readyState} (not yet fully connected); query will buffer.`);
             }
 
             // Set timeout for database query

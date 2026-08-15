@@ -56,4 +56,11 @@ const productDescriptionSchema = new mongoose.Schema({
     }
 });
 
-export default mongoose.model('ProductDescription', productDescriptionSchema); 
+// Phase 4 (M4): backend-owned tracked search. Weighted so a match in the
+// title ranks above a match buried in the description/meta_details.
+productDescriptionSchema.index(
+    { title: 'text', meta_details: 'text', description: 'text' },
+    { weights: { title: 10, meta_details: 5, description: 1 }, name: 'product_search_text_index' }
+);
+
+export default mongoose.model('ProductDescription', productDescriptionSchema);

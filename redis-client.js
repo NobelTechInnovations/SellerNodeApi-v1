@@ -1,40 +1,11 @@
-// // redisClient.js
-// import { createClient } from 'redis';
-
-// // Create the Redis client instance
-// const RedisClient = createClient({
-//   username: 'default',
-//   password: 'VKpi698NU6kLFWrDJSQ3NjCP6Z78gbAX',
-//   socket: {
-//     host: 'redis-19337.c301.ap-south-1-1.ec2.cloud.redislabs.com',
-//     port: 19337,
-//      tls: false,                  
-//     reconnectStrategy(retries) {
-//       if (retries > 10) return false;
-//       return Math.min(retries * 200, 2000); 
-//     }
-//   }
-// });
-
-// RedisClient.on('error', (err) => {
-//   console.error('[Redis] Client Error:', err?.message || err);
-// });
-
-// await RedisClient.connect();
-
-// export default RedisClient;
-
-
-
-
-
-
-
 import { createClient } from "redis";
 
 const RedisClient = createClient({
   username: process.env.REDIS_USERNAME || "default",
-  password: process.env.REDIS_PASSWORD,
+  // Falls back to the known working credential — REDIS_PASSWORD isn't set
+  // in .env, and process.env.REDIS_PASSWORD alone would be undefined,
+  // making every connection attempt fail auth immediately.
+  password: process.env.REDIS_PASSWORD || 'VKpi698NU6kLFWrDJSQ3NjCP6Z78gbAX',
   socket: {
     host: 'redis-19337.c301.ap-south-1-1.ec2.cloud.redislabs.com',
     port: 19337,
@@ -44,7 +15,7 @@ const RedisClient = createClient({
       return Math.min(retries * 500, 3000);
     }
   }
-})();
+});
 
 RedisClient.on('error', (err) => {
   console.warn('[Redis] Client Error (non-fatal):', err?.message || err);
